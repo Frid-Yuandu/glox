@@ -2,7 +2,7 @@ import argv
 import gleam/io
 import gleam/iterator
 import gleam/list
-import scan
+import lexer
 import simplifile
 import stdin.{stdin}
 import token
@@ -27,25 +27,18 @@ fn run_file(path: String) -> Nil {
 
 fn run_prompt() -> Nil {
   stdin()
-  |> iterator.map(fn(line) {
+  |> iterator.each(fn(line) {
     io.print("> ")
     run(line)
   })
-  |> iterator.run()
 }
 
 fn run(source: String) -> Nil {
-  scan.scan_token(source)
+  lexer.from_string(source)
+  |> lexer.lex_tokens()
+  |> lexer.get_tokens()
   |> list.map(token.to_string)
   |> list.each(io.println)
-}
-
-fn error(line, message) -> Nil {
-  report(line, "", message)
-}
-
-fn report(line, where, message) -> Nil {
-  io.println("[line " <> line <> "] Error" <> where <> ": " <> message)
 }
 
 @external(erlang, "erlang", "halt")
