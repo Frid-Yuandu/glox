@@ -1,5 +1,5 @@
 import gleam/float
-import gleam/int
+import gleam/option.{type Option, None, Some}
 
 pub type Token {
   // Single-character tokens.
@@ -28,7 +28,7 @@ pub type Token {
   // Literals.
   Identifier(String)
   String(String)
-  Number(Number)
+  Number(Float)
 
   // Keywords.
   And
@@ -51,69 +51,116 @@ pub type Token {
   EOF
 }
 
-pub opaque type Number {
-  Int(Int)
-  Float(Float)
-}
-
-fn number_to_string(number: Number) -> String {
-  case number {
-    Int(x) -> int.to_string(x)
-    Float(x) -> float.to_string(x)
-  }
-}
-
 pub fn to_string(token: Token) -> String {
-  let #(token_type, lexeme) = case token {
-    LeftParen -> #("LeftParen", "(")
-    RightParen -> #("RightParen", ")")
-    LeftBrace -> #("LeftBrace", "{")
-    RightBrace -> #("RightBrace", "}")
-    Comma -> #("Comma", ",")
-    Dot -> #("Dot", ".")
-    Minus -> #("Minus", "-")
-    Plus -> #("Plus", "+")
-    Semicolon -> #("Semicolon", ";")
-    Slash -> #("Slash", "/")
-    Star -> #("Star", "*")
-
-    Bang -> #("Bang", "!")
-    NotEqual -> #("NotEqual", "!=")
-    Equal -> #("Equal", "=")
-    EqualEqual -> #("EqualEqual", "==")
-    Greater -> #("Greater", ">")
-    GreaterEqual -> #("GreaterEqual", ">=")
-    Less -> #("Less", "<")
-    LessEqual -> #("LessEqual", "<=")
-
-    Identifier(name) -> #("Identifier", name)
-    String(str) -> #("String", "\"" <> str <> "\"")
-    Number(num) -> #("Number", number_to_string(num))
-
-    And -> #("And", "and")
-    Class -> #("Class", "class")
-    Else -> #("Else", "else")
-    False -> #("False", "false")
-    Fun -> #("Fun", "fun")
-    For -> #("For", "for")
-    If -> #("If", "if")
-    Nil -> #("Nil", "nil")
-    Or -> #("Or", "or")
-    Print -> #("Print", "print")
-    Return -> #("Return", "return")
-    Super -> #("Super", "super")
-    This -> #("This", "this")
-    True -> #("True", "true")
-    Var -> #("Var", "var")
-    While -> #("While", "while")
-
-    EOF -> #("EOF", "")
+  let token_type = token_type_string(token)
+  let lexeme = to_lexeme(token)
+  let literal = case to_literal(token) {
+    Some(l) -> l
+    None -> "null"
   }
-  let literal = case token {
-    String(str) -> str
-    Number(num) -> number_to_string(num)
-    _ -> "null"
-  }
+  token_type <> " " <> lexeme <> " " <> literal
+}
 
-  token_type <> lexeme <> literal
+pub fn token_type_string(token: Token) -> String {
+  case token {
+    LeftParen -> "LeftParen"
+    RightParen -> "RightParen"
+    LeftBrace -> "LeftBrace"
+    RightBrace -> "RightBrace"
+    Comma -> "Comma"
+    Dot -> "Dot"
+    Minus -> "Minus"
+    Plus -> "Plus"
+    Semicolon -> "Semicolon"
+    Slash -> "Slash"
+    Star -> "Star"
+
+    Bang -> "Bang"
+    NotEqual -> "NotEqual"
+    Equal -> "Equal"
+    EqualEqual -> "EqualEqual"
+    Greater -> "Greater"
+    GreaterEqual -> "GreaterEqual"
+    Less -> "Less"
+    LessEqual -> "LessEqual"
+
+    Identifier(_) -> "Identifier"
+    String(_) -> "String"
+    Number(_) -> "Number"
+
+    And -> "And"
+    Class -> "Class"
+    Else -> "Else"
+    False -> "False"
+    Fun -> "Fun"
+    For -> "For"
+    If -> "If"
+    Nil -> "Nil"
+    Or -> "Or"
+    Print -> "Print"
+    Return -> "Return"
+    Super -> "Super"
+    This -> "This"
+    True -> "True"
+    Var -> "Var"
+    While -> "While"
+
+    EOF -> "EOF"
+  }
+}
+
+pub fn to_lexeme(token: Token) -> String {
+  case token {
+    LeftParen -> "("
+    RightParen -> ")"
+    LeftBrace -> "{"
+    RightBrace -> "}"
+    Comma -> ","
+    Dot -> "."
+    Minus -> "-"
+    Plus -> "+"
+    Semicolon -> ";"
+    Slash -> "/"
+    Star -> "*"
+
+    Bang -> "!"
+    NotEqual -> "!="
+    Equal -> "="
+    EqualEqual -> "=="
+    Greater -> ">"
+    GreaterEqual -> ">="
+    Less -> "<"
+    LessEqual -> "<="
+
+    Identifier(name) -> name
+    String(value) -> "\"" <> value <> "\""
+    Number(number) -> float.to_string(number)
+
+    And -> "and"
+    Class -> "class"
+    Else -> "else"
+    False -> "false"
+    Fun -> "fun"
+    For -> "for"
+    If -> "if"
+    Nil -> "nil"
+    Or -> "or"
+    Print -> "print"
+    Return -> "return"
+    Super -> "super"
+    This -> "this"
+    True -> "true"
+    Var -> "var"
+    While -> "while"
+
+    EOF -> ""
+  }
+}
+
+pub fn to_literal(token: Token) -> Option(String) {
+  case token {
+    String(string) -> Some(string)
+    Number(number) -> Some(float.to_string(number))
+    _ -> None
+  }
 }
