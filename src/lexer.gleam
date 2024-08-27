@@ -41,48 +41,28 @@ fn is_at_end(lexer: Lexer) -> Bool {
 
 pub fn lex_tokens(lexer: Lexer) -> Lexer {
   let Lexer(tokens:, current:, line:, ..) = lexer
-  case is_at_end(lexer) {
-    True -> Lexer(..lexer, tokens: list.append(tokens, [token.EOF]))
-    False -> {
-      let char0 = peak(lexer)
-
-      let new_lexer: Lexer = case char0 {
-        // single character
-        Some("(")
-        | Some(")")
-        | Some("{")
-        | Some("}")
-        | Some(",")
-        | Some(".")
-        | Some("-")
-        | Some("+")
-        | Some(";")
-        | Some("*") -> lex_single_character(lexer)
-
-        // one or two character
-        Some("!") | Some("=") | Some(">") | Some("<") | Some("/") ->
-          lex_one_or_two_characters(lexer)
-
+  case peak(lexer) {
+    Some(char) -> {
+      let new_lexer: Lexer = case char {
+        "(" | ")" | "{" | "}" | "," | "." | "-" | "+" | ";" | "*" ->
+          lex_single_character(lexer)
+        "!" | "=" | ">" | "<" | "/" -> lex_one_or_two_characters(lexer)
         // whitespace and newline
-        Some(" ") | Some("\r") | Some("\t") -> shift(lexer, 1)
-        Some("\n") ->
+        " " | "\r" | "\t" -> shift(lexer, 1)
+        "\n" ->
           Lexer(
             ..lexer,
             start: current + 1,
             current: current + 1,
             line: line + 1,
           )
-
-        Some("\"") -> lex_string(lexer)
-
-        _ -> {
-          error.error(line: int.to_string(line), with: "Unexpected character.")
-          shift(lexer, 1)
-        }
+        "\"" -> lex_string(lexer)
+        _ -> consume_unsupport_character(lexer)
       }
 
       lex_tokens(new_lexer)
     }
+    None -> Lexer(..lexer, tokens: list.append(tokens, [token.EOF]))
   }
 }
 
@@ -164,6 +144,11 @@ fn consume_string(lexer) -> Lexer {
   }
 }
 
+fn consume_unsupport_character(lexer: Lexer) -> Lexer {
+  error.error(line: int.to_string(lexer.line), with: "Unexpected character.")
+  shift(lexer, 1)
+}
+
 fn consume_single_character(lexer, token_type) -> Lexer {
   consume_characters(lexer, token_type, 1)
 }
@@ -177,10 +162,9 @@ fn consume_characters(
   token_type: Option(token.Token),
   length: Int,
 ) -> Lexer {
-  let new_tokens = case token_type {
-    Some(t) -> list.append(lexer.tokens, [t])
-    None -> lexer.tokens
+  case token_type {
+    Some(t) -> Lexer(..lexer, tokens: list.append(lexer.tokens, [t]))
+    None -> lexer
   }
-  Lexer(..lexer, tokens: new_tokens)
   |> shift(length)
 }
