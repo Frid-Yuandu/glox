@@ -1,8 +1,13 @@
 import error
+import gleam/bool
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
+import lexer/predicate.{
+  is_alpha, is_alphanumeric, is_digit, is_newline, is_quotation_mark,
+  is_single_char, is_single_or_double_char, is_whitespace,
+}
 import token.{type Token}
 
 pub type Lexer {
@@ -23,8 +28,8 @@ pub fn get_tokens(lexer: Lexer) -> List(Token) {
   lexer.tokens
 }
 
-fn shift(lexer, offset) -> Lexer {
-  Lexer(..lexer, start: lexer.start + offset, current: lexer.current + offset)
+fn shift(lexer: Lexer) -> Lexer {
+  Lexer(..lexer, start: lexer.start + 1, current: lexer.current + 1)
 }
 
 fn peak(lexer: Lexer) -> Option(String) {
@@ -40,26 +45,29 @@ fn is_at_end(lexer: Lexer) -> Bool {
 }
 
 pub fn lex_tokens(lexer: Lexer) -> Lexer {
-  let Lexer(tokens:, current:, line:, ..) = lexer
+  let Lexer(tokens:, line:, ..) = lexer
   case peak(lexer) {
     Some(char) -> {
-      let new_lexer: Lexer = case char {
-        "(" | ")" | "{" | "}" | "," | "." | "-" | "+" | ";" | "*" ->
+      let new_lexer: Lexer = {
+        use <- bool.lazy_guard(is_single_char(char), fn() {
           lex_single_character(lexer)
-        "!" | "=" | ">" | "<" | "/" -> lex_one_or_two_characters(lexer)
-        // whitespace and newline
-        " " | "\r" | "\t" -> shift(lexer, 1)
-        "\n" ->
-          Lexer(
-            ..lexer,
-            start: current + 1,
-            current: current + 1,
-            line: line + 1,
-          )
-        "\"" -> lex_string(lexer)
-        "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ->
-          lex_number(lexer)
-        _ -> consume_unsupport_character(lexer)
+        })
+        use <- bool.lazy_guard(is_single_or_double_char(char), fn() {
+          lex_one_or_two_characters(lexer)
+        })
+
+        use <- bool.lazy_guard(is_whitespace(char), fn() { shift(lexer) })
+        use <- bool.lazy_guard(is_newline(char), fn() {
+          Lexer(..lexer, line: line + 1) |> shift
+        })
+
+        use <- bool.lazy_guard(is_quotation_mark(char), fn() {
+          lex_string(lexer)
+        })
+        use <- bool.lazy_guard(is_digit(char), fn() { lex_number(lexer) })
+        use <- bool.lazy_guard(is_alpha(char), fn() { lex_identifier(lexer) })
+
+        consume_unsupport_character(lexer)
       }
 
       lex_tokens(new_lexer)
@@ -86,7 +94,7 @@ fn lex_single_character(lexer) -> Lexer {
 }
 
 fn lex_one_or_two_characters(lexer) -> Lexer {
-  let #(char0, char1) = #(peak(lexer), peak(shift(lexer, 1)))
+  let #(char0, char1) = #(peak(lexer), peak(shift(lexer)))
 
   case char0, char1 {
     Some("!"), Some("=") ->
@@ -113,12 +121,12 @@ fn consume_comment(lexer: Lexer) -> Lexer {
   case peak(lexer) {
     // Do not consume the newline in order to update lexer's line.
     None | Some("\n") -> lexer
-    Some(_) -> consume_comment(shift(lexer, 1))
+    Some(_) -> consume_comment(shift(lexer))
   }
 }
 
 fn lex_string(lexer) -> Lexer {
-  shift(lexer, 1) |> consume_string
+  shift(lexer) |> consume_string
 }
 
 fn consume_string(lexer) -> Lexer {
@@ -153,15 +161,15 @@ fn lex_number(lexer) -> Lexer {
     False -> lexer
   }
 
-  let Lexer(source:, start:, current:, ..) = lexer
+  let Lexer(source:, start:, current:, tokens:, ..) = lexer
   let length = current - start
   let parsed_tok =
     string.slice(source, at_index: start, length:)
     |> token.parse_number
   case parsed_tok {
     Ok(tok) ->
-      Lexer(..lexer, current: start)
-      |> consume_characters(Some(tok), length)
+      Lexer(..lexer, start: current, tokens: list.append(tokens, [tok]))
+
     Error(_) -> {
       error.error(int.to_string(lexer.line), "Failed to parse number.")
       Lexer(..lexer, start: current)
@@ -187,34 +195,40 @@ fn is_need_consume_fraction(lexer) -> Bool {
   }
 }
 
-fn is_digit(char: String) -> Bool {
-  case char {
-    "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" -> True
-    _ -> False
+fn lex_identifier(lexer) -> Lexer {
+  let Lexer(source:, start:, current:, tokens:, ..) = lexer
+  let is_continue = peak(lexer) |> option.unwrap("") |> is_alphanumeric
+  case is_continue {
+    True -> lex_identifier(Lexer(..lexer, current: current + 1))
+    False -> {
+      let name = string.slice(source, at_index: start, length: current - start)
+      Lexer(
+        ..lexer,
+        tokens: list.append(tokens, [token.Identifier(name)]),
+        start: current,
+      )
+    }
   }
 }
 
 fn consume_unsupport_character(lexer: Lexer) -> Lexer {
   error.error(line: int.to_string(lexer.line), with: "Unexpected character.")
-  shift(lexer, 1)
+  shift(lexer)
 }
 
 fn consume_single_character(lexer, token_type) -> Lexer {
-  consume_characters(lexer, token_type, 1)
-}
-
-fn consume_double_character(lexer, token_type) -> Lexer {
-  consume_characters(lexer, token_type, 2)
-}
-
-fn consume_characters(
-  lexer: Lexer,
-  token_type: Option(token.Token),
-  length: Int,
-) -> Lexer {
   case token_type {
     Some(t) -> Lexer(..lexer, tokens: list.append(lexer.tokens, [t]))
     None -> lexer
   }
-  |> shift(length)
+  |> shift
+}
+
+fn consume_double_character(lexer, token_type) -> Lexer {
+  case token_type {
+    Some(t) -> Lexer(..lexer, tokens: list.append(lexer.tokens, [t]))
+    None -> lexer
+  }
+  |> shift
+  |> shift
 }
