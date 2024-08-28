@@ -57,6 +57,8 @@ pub fn lex_tokens(lexer: Lexer) -> Lexer {
             line: line + 1,
           )
         "\"" -> lex_string(lexer)
+        "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ->
+          lex_number(lexer)
         _ -> consume_unsupport_character(lexer)
       }
 
@@ -141,6 +143,54 @@ fn consume_string(lexer) -> Lexer {
       error.error(line: int.to_string(line), with: "Unterminated string.")
       lexer
     }
+  }
+}
+
+fn lex_number(lexer) -> Lexer {
+  let lexer = consume_number(lexer)
+  let lexer = case is_need_consume_number_after_dot(lexer) {
+    True -> consume_number(Lexer(..lexer, current: lexer.current + 1))
+    False -> lexer
+  }
+
+  let Lexer(source:, start:, current:, ..) = lexer
+  let length = current - start
+  let parsed_tok =
+    string.slice(source, at_index: start, length:)
+    |> token.parse_number
+  case parsed_tok {
+    Ok(tok) ->
+      Lexer(..lexer, current: start)
+      |> consume_characters(Some(tok), length)
+    Error(_) -> {
+      error.error(int.to_string(lexer.line), "Failed to parse number.")
+      Lexer(..lexer, start: current)
+    }
+  }
+}
+
+fn consume_number(lexer) -> Lexer {
+  let is_continue = peak(lexer) |> option.unwrap("") |> is_digit
+  case is_continue {
+    True -> consume_number(Lexer(..lexer, current: lexer.current + 1))
+    False -> lexer
+  }
+}
+
+fn is_need_consume_number_after_dot(lexer) -> Bool {
+  let next_lexer = Lexer(..lexer, current: lexer.current + 1)
+  let is_next_digit = peak(next_lexer) |> option.unwrap("") |> is_digit
+
+  case peak(lexer), is_next_digit {
+    Some("."), True -> True
+    _, _ -> False
+  }
+}
+
+fn is_digit(char: String) -> Bool {
+  case char {
+    "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" -> True
+    _ -> False
   }
 }
 

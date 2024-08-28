@@ -1,4 +1,5 @@
 import gleam/float
+import gleam/int
 import gleam/option.{type Option, None, Some}
 
 pub type Token {
@@ -38,7 +39,7 @@ pub type Token {
   Fun
   For
   If
-  Nil
+  NilLiteral
   Or
   Print
   Return
@@ -95,7 +96,7 @@ pub fn token_type_string(token: Token) -> String {
     Fun -> "Fun"
     For -> "For"
     If -> "If"
-    Nil -> "Nil"
+    NilLiteral -> "Nil"
     Or -> "Or"
     Print -> "Print"
     Return -> "Return"
@@ -143,7 +144,7 @@ pub fn to_lexeme(token: Token) -> String {
     Fun -> "fun"
     For -> "for"
     If -> "if"
-    Nil -> "nil"
+    NilLiteral -> "nil"
     Or -> "or"
     Print -> "print"
     Return -> "return"
@@ -162,5 +163,16 @@ pub fn to_literal(token: Token) -> Option(String) {
     String(string) -> Some(string)
     Number(number) -> Some(float.to_string(number))
     _ -> None
+  }
+}
+
+pub fn parse_number(str) -> Result(Token, Nil) {
+  case float.parse(str) {
+    Ok(number) -> Ok(Number(number))
+    Error(_) ->
+      case int.parse(str) {
+        Ok(integer) -> Ok(Number(int.to_float(integer)))
+        Error(_) -> Error(Nil)
+      }
   }
 }
