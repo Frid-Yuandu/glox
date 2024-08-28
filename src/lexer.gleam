@@ -148,7 +148,7 @@ fn consume_string(lexer) -> Lexer {
 
 fn lex_number(lexer) -> Lexer {
   let lexer = consume_number(lexer)
-  let lexer = case is_need_consume_number_after_dot(lexer) {
+  let lexer = case is_need_consume_fraction(lexer) {
     True -> consume_number(Lexer(..lexer, current: lexer.current + 1))
     False -> lexer
   }
@@ -177,7 +177,7 @@ fn consume_number(lexer) -> Lexer {
   }
 }
 
-fn is_need_consume_number_after_dot(lexer) -> Bool {
+fn is_need_consume_fraction(lexer) -> Bool {
   let next_lexer = Lexer(..lexer, current: lexer.current + 1)
   let is_next_digit = peak(next_lexer) |> option.unwrap("") |> is_digit
 
