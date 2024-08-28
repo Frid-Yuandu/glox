@@ -2,7 +2,7 @@ import gleeunit/should
 import lexer
 import token
 
-pub fn lex_single_character_tokens_test() {
+pub fn should_lex_single_character_tokens_test() {
   let lexer = lexer.from_string(";(+{,.}-*)")
 
   lexer.lex_tokens(lexer)
@@ -27,7 +27,7 @@ pub fn lex_single_character_tokens_test() {
   ))
 }
 
-pub fn lex_one_or_two_characters_test() {
+pub fn should_lex_one_or_two_characters_test() {
   let lexer = lexer.from_string("!!= = == <> <=>=")
 
   lexer.lex_tokens(lexer)
@@ -50,7 +50,7 @@ pub fn lex_one_or_two_characters_test() {
   ))
 }
 
-pub fn lex_comments_test() {
+pub fn should_lex_comments_test() {
   let lexer = lexer.from_string("!// this is a comment")
 
   lexer.lex_tokens(lexer)
@@ -63,7 +63,7 @@ pub fn lex_comments_test() {
   ))
 }
 
-pub fn lex_token_between_comment_lines_test() {
+pub fn should_lex_token_between_comment_lines_test() {
   let lexer =
     lexer.from_string(
       "// this is the first comment\n==\n//this is the second comment",
@@ -79,7 +79,7 @@ pub fn lex_token_between_comment_lines_test() {
   ))
 }
 
-pub fn lex_whitespace_test() {
+pub fn should_lex_whitespace_test() {
   let lexer = lexer.from_string(". \r,; \t ")
 
   lexer.lex_tokens(lexer)
@@ -92,7 +92,7 @@ pub fn lex_whitespace_test() {
   ))
 }
 
-pub fn lex_new_line_test() -> Nil {
+pub fn should_lex_new_line_test() -> Nil {
   let lexer = lexer.from_string("+\n!\n-\n ")
 
   lexer.lex_tokens(lexer)
@@ -105,7 +105,7 @@ pub fn lex_new_line_test() -> Nil {
   ))
 }
 
-pub fn lex_string_test() {
+pub fn should_lex_string_test() {
   let lexer = lexer.from_string("\"this is a string\"")
 
   lexer.lex_tokens(lexer)
@@ -118,7 +118,7 @@ pub fn lex_string_test() {
   ))
 }
 
-pub fn lex_int_number_test() {
+pub fn should_lex_int_number_test() {
   let lexer = lexer.from_string("1234")
 
   lexer.lex_tokens(lexer)
@@ -131,7 +131,7 @@ pub fn lex_int_number_test() {
   ))
 }
 
-pub fn lex_float_number_test() {
+pub fn should_lex_float_number_test() {
   let lexer = lexer.from_string("12.34")
 
   lexer.lex_tokens(lexer)
@@ -144,7 +144,7 @@ pub fn lex_float_number_test() {
   ))
 }
 
-pub fn lex_unsupport_token_test() {
+pub fn should_not_lex_unsupport_token_test() {
   let lexer =
     lexer.Lexer(source: "@", tokens: [], start: 0, current: 0, line: 0)
 
