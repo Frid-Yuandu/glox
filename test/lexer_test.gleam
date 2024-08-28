@@ -118,6 +118,32 @@ pub fn lex_string_test() {
   ))
 }
 
+pub fn lex_int_number_test() {
+  let lexer = lexer.from_string("1234")
+
+  lexer.lex_tokens(lexer)
+  |> should.equal(lexer.Lexer(
+    source: "1234",
+    tokens: [token.Number(1234.0), token.EOF],
+    start: 4,
+    current: 4,
+    line: 0,
+  ))
+}
+
+pub fn lex_float_number_test() {
+  let lexer = lexer.from_string("12.34")
+
+  lexer.lex_tokens(lexer)
+  |> should.equal(lexer.Lexer(
+    source: "12.34",
+    tokens: [token.Number(12.34), token.EOF],
+    start: 5,
+    current: 5,
+    line: 0,
+  ))
+}
+
 pub fn lex_unsupport_token_test() {
   let lexer =
     lexer.Lexer(source: "@", tokens: [], start: 0, current: 0, line: 0)
