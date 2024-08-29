@@ -28,8 +28,8 @@ fn run_file(path: String) -> Nil {
 fn run_prompt() -> Nil {
   stdin()
   |> iterator.each(fn(line) {
-    io.print("> ")
     run(line)
+    io.print("> ")
   })
 }
 
