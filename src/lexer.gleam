@@ -202,12 +202,34 @@ fn lex_identifier(lexer) -> Lexer {
     True -> lex_identifier(Lexer(..lexer, current: current + 1))
     False -> {
       let name = string.slice(source, at_index: start, length: current - start)
-      Lexer(
-        ..lexer,
-        tokens: list.append(tokens, [token.Identifier(name)]),
-        start: current,
-      )
+      let tokens = case str_to_keyword(name) {
+        None -> list.append(tokens, [token.Identifier(name)])
+        Some(tok) -> list.append(tokens, [tok])
+      }
+      Lexer(..lexer, tokens:, start: current)
     }
+  }
+}
+
+fn str_to_keyword(char: String) -> Option(Token) {
+  case char {
+    "and" -> Some(token.And)
+    "class" -> Some(token.Class)
+    "else" -> Some(token.Else)
+    "false" -> Some(token.False)
+    "fun" -> Some(token.Fun)
+    "for" -> Some(token.For)
+    "if" -> Some(token.If)
+    "nil" -> Some(token.NilLiteral)
+    "or" -> Some(token.Or)
+    "print" -> Some(token.Print)
+    "return" -> Some(token.Return)
+    "super" -> Some(token.Super)
+    "this" -> Some(token.This)
+    "true" -> Some(token.True)
+    "var" -> Some(token.Var)
+    "while" -> Some(token.While)
+    _ -> None
   }
 }
 

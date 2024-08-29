@@ -144,6 +144,19 @@ pub fn should_lex_float_number_test() {
   ))
 }
 
+pub fn should_lex_identifier_test() {
+  let lexer = lexer.from_string("test_1_name")
+
+  lexer.lex_tokens(lexer)
+  |> should.equal(lexer.Lexer(
+    source: "test_1_name",
+    tokens: [token.Identifier("test_1_name"), token.EOF],
+    start: 11,
+    current: 11,
+    line: 0,
+  ))
+}
+
 pub fn should_not_lex_unsupport_token_test() {
   let lexer =
     lexer.Lexer(source: "@", tokens: [], start: 0, current: 0, line: 0)
