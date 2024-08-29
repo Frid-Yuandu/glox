@@ -41,5 +41,5 @@ fn run(source: String) -> Nil {
   |> list.each(io.println)
 }
 
-@external(erlang, "erlang", "halt")
+@external(erlang, "exit_ffi", "do_exit")
 fn exit(code: Int) -> Nil
