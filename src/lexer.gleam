@@ -1,9 +1,10 @@
-import error
 import gleam/bool
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
+
+import error
 import lexer/predicate.{
   is_alpha, is_alphanumeric, is_digit, is_newline, is_quotation_mark,
   is_single_char, is_single_or_double_char, is_whitespace,

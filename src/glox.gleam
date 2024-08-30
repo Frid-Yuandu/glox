@@ -1,11 +1,13 @@
-import argv
 import gleam/io
 import gleam/iterator
 import gleam/list
+
 import lexer
+import token
+
+import argv
 import simplifile
 import stdin.{stdin}
-import token
 
 pub fn main() {
   case argv.load().arguments {
