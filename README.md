@@ -14,7 +14,7 @@ You can get more information about Lox and how to design interpreters at [*craft
 git clone https://github.com/Frid-Yuandu/glox.git
 cd glox
 touch test.lox
-# Writh some code in test.lox.
+# Write some code in test.lox.
 gleam run test.lox
 ```
 
