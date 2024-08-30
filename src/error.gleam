@@ -5,5 +5,5 @@ pub fn error(line line, with msg) -> Nil {
 }
 
 fn report(line, where, msg) -> Nil {
-  io.println("[line " <> line <> "] Error" <> where <> ": " <> msg)
+  io.println_error("[line " <> line <> "] Error" <> where <> ": " <> msg)
 }
