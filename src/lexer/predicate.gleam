@@ -1,10 +1,8 @@
+//// This module provides some useful predicates for lexical strategy. Because
+//// of the performance benefit of pattern matching, it is the most approach of 
+//// these predicates. But for readability, I use `list.contains` in `is_alpha`.
+
 import gleam/list
-
-const single_chars = ["(", ")", "{", "}", ",", ".", "-", "+", ";", "*"]
-
-const single_or_double_chars = ["!", "=", ">", "<", "/"]
-
-const digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
 const alphas = [
   "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p",
@@ -17,24 +15,36 @@ pub fn is_alphanumeric(char: String) -> Bool {
   is_digit(char) || is_alpha(char)
 }
 
-pub fn is_digit(char: String) -> Bool {
-  list.contains(digits, char)
-}
-
 pub fn is_alpha(char: String) -> Bool {
   list.contains(alphas, char)
 }
 
+pub fn is_digit(char: String) -> Bool {
+  case char {
+    "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" -> True
+    _ -> False
+  }
+}
+
 pub fn is_single_char(char: String) -> Bool {
-  list.contains(single_chars, char)
+  case char {
+    "(" | ")" | "{" | "}" | "," | "." | "-" | "+" | ";" | "*" -> True
+    _ -> False
+  }
 }
 
 pub fn is_single_or_double_char(char: String) -> Bool {
-  list.contains(single_or_double_chars, char)
+  case char {
+    "!" | "=" | ">" | "<" | "/" -> True
+    _ -> False
+  }
 }
 
 pub fn is_whitespace(char) -> Bool {
-  char == " " || char == "\r" || char == "\t"
+  case char {
+    " " | "\r" | "\t" -> True
+    _ -> False
+  }
 }
 
 pub fn is_newline(char) -> Bool {
