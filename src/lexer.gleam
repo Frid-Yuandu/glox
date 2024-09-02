@@ -173,15 +173,14 @@ fn lex_number(lexer) -> Lexer {
     False -> #(acc, lexer)
   }
 
-  let Lexer(tokens:, line:, ..) = lexer
-  let parsed_tok = token.parse_number(acc)
-  case parsed_tok {
-    Ok(tok) -> Lexer(..lexer, tokens: list.append(tokens, [Ok(tok)]))
+  case token.parse_number(acc) {
+    Ok(tok) -> Lexer(..lexer, tokens: list.append(lexer.tokens, [Ok(tok)]))
 
     Error(_) -> {
-      let raw = acc
       let tokens =
-        list.append(tokens, [Error(LexicalError(FailedParseNumber(raw), line))])
+        list.append(lexer.tokens, [
+          Error(LexicalError(FailedParseNumber(acc), lexer.line)),
+        ])
       Lexer(..lexer, tokens:)
     }
   }
