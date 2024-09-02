@@ -9,20 +9,19 @@ pub fn should_lex_single_character_tokens_test() {
   |> should.equal(lexer.Lexer(
     source: ";(+{,.}-*)",
     tokens: [
-      token.Semicolon,
-      token.LeftParen,
-      token.Plus,
-      token.LeftBrace,
-      token.Comma,
-      token.Dot,
-      token.RightBrace,
-      token.Minus,
-      token.Star,
-      token.RightParen,
-      token.EOF,
+      Ok(token.Semicolon),
+      Ok(token.LeftParen),
+      Ok(token.Plus),
+      Ok(token.LeftBrace),
+      Ok(token.Comma),
+      Ok(token.Dot),
+      Ok(token.RightBrace),
+      Ok(token.Minus),
+      Ok(token.Star),
+      Ok(token.RightParen),
+      Ok(token.EOF),
     ],
-    start: 10,
-    current: 10,
+    pos: 10,
     line: 0,
   ))
 }
@@ -34,18 +33,17 @@ pub fn should_lex_one_or_two_characters_test() {
   |> should.equal(lexer.Lexer(
     source: "!!= = == <> <=>=",
     tokens: [
-      token.Bang,
-      token.NotEqual,
-      token.Equal,
-      token.EqualEqual,
-      token.Less,
-      token.Greater,
-      token.LessEqual,
-      token.GreaterEqual,
-      token.EOF,
+      Ok(token.Bang),
+      Ok(token.NotEqual),
+      Ok(token.Equal),
+      Ok(token.EqualEqual),
+      Ok(token.Less),
+      Ok(token.Greater),
+      Ok(token.LessEqual),
+      Ok(token.GreaterEqual),
+      Ok(token.EOF),
     ],
-    start: 16,
-    current: 16,
+    pos: 16,
     line: 0,
   ))
 }
@@ -56,9 +54,8 @@ pub fn should_lex_comments_test() {
   lexer.lex_tokens(lexer)
   |> should.equal(lexer.Lexer(
     source: "!// this is a comment",
-    tokens: [token.Bang, token.EOF],
-    start: 21,
-    current: 21,
+    tokens: [Ok(token.Bang), Ok(token.EOF)],
+    pos: 21,
     line: 0,
   ))
 }
@@ -72,9 +69,8 @@ pub fn should_lex_token_between_comment_lines_test() {
   lexer.lex_tokens(lexer)
   |> should.equal(lexer.Lexer(
     source: "// this is the first comment\n==\n//this is the second comment",
-    tokens: [token.EqualEqual, token.EOF],
-    start: 60,
-    current: 60,
+    tokens: [Ok(token.EqualEqual), Ok(token.EOF)],
+    pos: 60,
     line: 2,
   ))
 }
@@ -85,9 +81,8 @@ pub fn should_lex_whitespace_test() {
   lexer.lex_tokens(lexer)
   |> should.equal(lexer.Lexer(
     source: ". \r,; \t ",
-    tokens: [token.Dot, token.Comma, token.Semicolon, token.EOF],
-    start: 8,
-    current: 8,
+    tokens: [Ok(token.Dot), Ok(token.Comma), Ok(token.Semicolon), Ok(token.EOF)],
+    pos: 8,
     line: 0,
   ))
 }
@@ -98,9 +93,8 @@ pub fn should_lex_new_line_test() -> Nil {
   lexer.lex_tokens(lexer)
   |> should.equal(lexer.Lexer(
     source: "+\n!\n-\n ",
-    tokens: [token.Plus, token.Bang, token.Minus, token.EOF],
-    start: 7,
-    current: 7,
+    tokens: [Ok(token.Plus), Ok(token.Bang), Ok(token.Minus), Ok(token.EOF)],
+    pos: 7,
     line: 3,
   ))
 }
@@ -111,9 +105,8 @@ pub fn should_lex_string_test() {
   lexer.lex_tokens(lexer)
   |> should.equal(lexer.Lexer(
     source: "\"this is a string\"",
-    tokens: [token.String("this is a string"), token.EOF],
-    start: 18,
-    current: 18,
+    tokens: [Ok(token.String("this is a string")), Ok(token.EOF)],
+    pos: 18,
     line: 0,
   ))
 }
@@ -124,9 +117,8 @@ pub fn should_lex_int_number_test() {
   lexer.lex_tokens(lexer)
   |> should.equal(lexer.Lexer(
     source: "1234",
-    tokens: [token.Number(1234.0), token.EOF],
-    start: 4,
-    current: 4,
+    tokens: [Ok(token.Number(1234.0)), Ok(token.EOF)],
+    pos: 4,
     line: 0,
   ))
 }
@@ -137,9 +129,8 @@ pub fn should_lex_float_number_test() {
   lexer.lex_tokens(lexer)
   |> should.equal(lexer.Lexer(
     source: "12.34",
-    tokens: [token.Number(12.34), token.EOF],
-    start: 5,
-    current: 5,
+    tokens: [Ok(token.Number(12.34)), Ok(token.EOF)],
+    pos: 5,
     line: 0,
   ))
 }
@@ -150,23 +141,23 @@ pub fn should_lex_identifier_test() {
   lexer.lex_tokens(lexer)
   |> should.equal(lexer.Lexer(
     source: "test_1_name",
-    tokens: [token.Identifier("test_1_name"), token.EOF],
-    start: 11,
-    current: 11,
+    tokens: [Ok(token.Identifier("test_1_name")), Ok(token.EOF)],
+    pos: 11,
     line: 0,
   ))
 }
 
 pub fn should_not_lex_unsupport_token_test() {
-  let lexer =
-    lexer.Lexer(source: "@", tokens: [], start: 0, current: 0, line: 0)
+  let lexer = lexer.Lexer(source: "@", tokens: [], pos: 0, line: 0)
 
   lexer.lex_tokens(lexer)
   |> should.equal(lexer.Lexer(
     source: "@",
-    tokens: [token.EOF],
-    start: 1,
-    current: 1,
+    tokens: [
+      Error(lexer.LexicalError(lexer.UnexpectedCharacter("@"), 0)),
+      Ok(token.EOF),
+    ],
+    pos: 1,
     line: 0,
   ))
 }

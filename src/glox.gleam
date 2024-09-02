@@ -1,6 +1,7 @@
 import gleam/io
 import gleam/iterator
 import gleam/list
+import gleam/result
 
 import lexer
 import token
@@ -22,7 +23,13 @@ pub fn main() {
 
 fn run_file(path: String) -> Nil {
   case simplifile.read(path) {
-    Ok(content) -> run(content)
+    Ok(content) -> {
+      let lex_result = run(content)
+      case list.any(lex_result.tokens, result.is_error) {
+        True -> exit(65)
+        False -> exit(0)
+      }
+    }
     Error(_) -> exit(64)
   }
 }
@@ -35,12 +42,40 @@ fn run_prompt() -> Nil {
   })
 }
 
-fn run(source: String) -> Nil {
-  lexer.from_string(source)
-  |> lexer.lex_tokens()
-  |> lexer.get_tokens()
-  |> list.map(token.to_string)
-  |> list.each(io.println)
+fn run(source: String) -> lexer.Lexer {
+  let lex_result =
+    lexer.from_string(source)
+    |> lexer.lex_tokens()
+
+  lex_result.tokens
+  |> print_errors
+
+  lex_result.tokens
+  |> print_tokens
+
+  lex_result
+}
+
+fn print_errors(tokens: List(lexer.LexicalResult)) -> Nil {
+  tokens
+  |> list.filter(result.is_error)
+  |> list.each(fn(item) {
+    case item {
+      Error(err) -> lexer.inspect_error(err) |> io.println_error
+      _ -> Nil
+    }
+  })
+}
+
+fn print_tokens(tokens: List(lexer.LexicalResult)) -> Nil {
+  tokens
+  |> list.filter(result.is_ok)
+  |> list.each(fn(item) {
+    case item {
+      Ok(tok) -> token.to_string(tok) |> io.println
+      _ -> Nil
+    }
+  })
 }
 
 @external(erlang, "exit_ffi", "do_exit")
