@@ -4,10 +4,8 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 
-import lexer/predicate.{
-  is_alpha, is_alphanumeric, is_digit, is_newline, is_quotation_mark,
-  is_single_char, is_single_or_double_char, is_whitespace,
-}
+import lexer/predicate.{is_alpha, is_alphanumeric, is_digit, is_quotation_mark}
+
 import token.{type Token}
 
 pub type LexicalResult =
@@ -70,64 +68,63 @@ pub fn lex_tokens(lexer: Lexer) -> Lexer {
 }
 
 fn lex_token(lexer: Lexer, char: String) -> Lexer {
-  let Lexer(line:, ..) = lexer
-  use <- bool.lazy_guard(is_single_char(char), fn() {
-    lex_single_character(lexer)
-  })
-  use <- bool.lazy_guard(is_single_or_double_char(char), fn() {
-    lex_one_or_two_characters(lexer)
-  })
-
-  use <- bool.lazy_guard(is_whitespace(char), fn() { shift(lexer) })
-  use <- bool.lazy_guard(is_newline(char), fn() {
-    Lexer(..lexer, line: line + 1) |> shift
-  })
-
   use <- bool.lazy_guard(is_quotation_mark(char), fn() { lex_string(lexer) })
   use <- bool.lazy_guard(is_digit(char), fn() { lex_number(lexer) })
   use <- bool.lazy_guard(is_alpha(char), fn() { lex_identifier(lexer) })
 
-  consume_unsupport_character(lexer, char)
+  lex_characters(lexer)
 }
 
-fn lex_single_character(lexer) -> Lexer {
-  case peak(lexer) {
-    Some("(") -> Some(token.LeftParen)
-    Some(")") -> Some(token.RightParen)
-    Some("{") -> Some(token.LeftBrace)
-    Some("}") -> Some(token.RightBrace)
-    Some(",") -> Some(token.Comma)
-    Some(".") -> Some(token.Dot)
-    Some("-") -> Some(token.Minus)
-    Some("+") -> Some(token.Plus)
-    Some(";") -> Some(token.Semicolon)
-    Some("*") -> Some(token.Star)
-    _ -> None
-  }
-  |> consume_single_character(lexer, _)
-}
+fn lex_characters(lexer: Lexer) -> Lexer {
+  let char0 = peak(lexer)
 
-fn lex_one_or_two_characters(lexer) -> Lexer {
-  let #(char0, char1) = #(peak(lexer), peak(shift(lexer)))
+  case char0 {
+    Some("(") -> consume_single_character(lexer, Ok(token.LeftParen))
+    Some(")") -> consume_single_character(lexer, Ok(token.RightParen))
+    Some("{") -> consume_single_character(lexer, Ok(token.LeftBrace))
+    Some("}") -> consume_single_character(lexer, Ok(token.RightBrace))
+    Some(",") -> consume_single_character(lexer, Ok(token.Comma))
+    Some(".") -> consume_single_character(lexer, Ok(token.Dot))
+    Some("-") -> consume_single_character(lexer, Ok(token.Minus))
+    Some("+") -> consume_single_character(lexer, Ok(token.Plus))
+    Some(";") -> consume_single_character(lexer, Ok(token.Semicolon))
+    Some("*") -> consume_single_character(lexer, Ok(token.Star))
 
-  case char0, char1 {
-    Some("!"), Some("=") ->
-      consume_double_character(lexer, Some(token.NotEqual))
-    Some("="), Some("=") ->
-      consume_double_character(lexer, Some(token.EqualEqual))
-    Some(">"), Some("=") ->
-      consume_double_character(lexer, Some(token.GreaterEqual))
-    Some("<"), Some("=") ->
-      consume_double_character(lexer, Some(token.LessEqual))
-    Some("/"), Some("/") -> {
-      consume_comment(lexer)
-    }
-    Some("!"), _ -> consume_single_character(lexer, Some(token.Bang))
-    Some("="), _ -> consume_single_character(lexer, Some(token.Equal))
-    Some(">"), _ -> consume_single_character(lexer, Some(token.Greater))
-    Some("<"), _ -> consume_single_character(lexer, Some(token.Less))
-    Some("/"), _ -> consume_single_character(lexer, Some(token.Slash))
-    _, _ -> consume_single_character(lexer, None)
+    Some(" ") | Some("\r") | Some("\t") -> shift(lexer)
+    Some("\n") -> Lexer(..lexer, line: lexer.line + 1) |> shift
+
+    Some("!") ->
+      case peak(shift(lexer)) {
+        Some("=") -> consume_double_character(lexer, Ok(token.NotEqual))
+        _ -> consume_single_character(lexer, Ok(token.Bang))
+      }
+    Some("=") ->
+      case peak(shift(lexer)) {
+        Some("=") -> consume_double_character(lexer, Ok(token.EqualEqual))
+        _ -> consume_single_character(lexer, Ok(token.Equal))
+      }
+    Some(">") ->
+      case peak(shift(lexer)) {
+        Some("=") -> consume_double_character(lexer, Ok(token.GreaterEqual))
+        _ -> consume_single_character(lexer, Ok(token.Greater))
+      }
+    Some("<") ->
+      case peak(shift(lexer)) {
+        Some("=") -> consume_double_character(lexer, Ok(token.LessEqual))
+        _ -> consume_single_character(lexer, Ok(token.Less))
+      }
+    Some("/") ->
+      case peak(shift(lexer)) {
+        Some("/") -> consume_comment(lexer)
+        _ -> consume_single_character(lexer, Ok(token.Slash))
+      }
+
+    Some(c) ->
+      consume_single_character(
+        lexer,
+        Error(LexicalError(UnexpectedCharacter(c), lexer.line)),
+      )
+    None -> lexer
   }
 }
 
@@ -243,28 +240,12 @@ fn to_keyword(char) -> Option(Token) {
   }
 }
 
-fn consume_unsupport_character(lexer: Lexer, char: String) -> Lexer {
-  let tokens =
-    list.append(lexer.tokens, [
-      Error(LexicalError(UnexpectedCharacter(char), lexer.line)),
-    ])
-  Lexer(..lexer, tokens:)
-  |> shift()
-}
-
-fn consume_single_character(lexer, token_type) -> Lexer {
-  case token_type {
-    Some(t) -> Lexer(..lexer, tokens: list.append(lexer.tokens, [Ok(t)]))
-    None -> lexer
-  }
+fn consume_single_character(lexer: Lexer, result: LexicalResult) -> Lexer {
+  Lexer(..lexer, tokens: list.append(lexer.tokens, [result]))
   |> shift
 }
 
-fn consume_double_character(lexer, token_type) -> Lexer {
-  case token_type {
-    Some(t) -> Lexer(..lexer, tokens: list.append(lexer.tokens, [Ok(t)]))
-    None -> lexer
-  }
-  |> shift
+fn consume_double_character(lexer, result) -> Lexer {
+  consume_single_character(lexer, result)
   |> shift
 }

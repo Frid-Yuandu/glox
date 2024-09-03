@@ -26,31 +26,6 @@ pub fn is_digit(char: String) -> Bool {
   }
 }
 
-pub fn is_single_char(char: String) -> Bool {
-  case char {
-    "(" | ")" | "{" | "}" | "," | "." | "-" | "+" | ";" | "*" -> True
-    _ -> False
-  }
-}
-
-pub fn is_single_or_double_char(char: String) -> Bool {
-  case char {
-    "!" | "=" | ">" | "<" | "/" -> True
-    _ -> False
-  }
-}
-
-pub fn is_whitespace(char) -> Bool {
-  case char {
-    " " | "\r" | "\t" -> True
-    _ -> False
-  }
-}
-
-pub fn is_newline(char) -> Bool {
-  char == "\n"
-}
-
 pub fn is_quotation_mark(char) -> Bool {
   char == "\""
 }
