@@ -5,8 +5,8 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 
-import lexer/predicate.{is_alpha, is_alphanumeric, is_digit, is_quotation_mark}
-import lexer/token.{type Token}
+import parse/predicate.{is_alpha, is_alphanumeric, is_digit, is_quotation_mark}
+import parse/token.{type Token, type TokenType, Token}
 
 pub type LexicalResult =
   Result(Token, LexicalError)
@@ -36,7 +36,7 @@ pub type Lexer {
 }
 
 pub fn from_string(source: String) -> Lexer {
-  Lexer(source:, tokens: [], pos: 0, line: 0)
+  Lexer(source:, tokens: [], pos: 0, line: 1)
 }
 
 fn shift(lexer: Lexer) -> Lexer {
@@ -56,14 +56,15 @@ fn is_at_end(lexer: Lexer) -> Bool {
 }
 
 pub fn lex_tokens(lexer: Lexer) -> Lexer {
-  let Lexer(tokens:, ..) = lexer
+  let Lexer(tokens:, line:, ..) = lexer
   case peak(lexer) {
     Some(char) -> {
       lexer
       |> lex_token(char)
       |> lex_tokens
     }
-    None -> Lexer(..lexer, tokens: list.append(tokens, [Ok(token.EOF)]))
+    None ->
+      Lexer(..lexer, tokens: list.append(tokens, [Ok(Token(token.EOF, line))]))
   }
 }
 
@@ -79,48 +80,52 @@ fn lex_characters(lexer: Lexer) -> Lexer {
   let char0 = peak(lexer)
 
   case char0 {
-    Some("(") -> consume_single_character(lexer, Ok(token.LeftParen))
-    Some(")") -> consume_single_character(lexer, Ok(token.RightParen))
-    Some("{") -> consume_single_character(lexer, Ok(token.LeftBrace))
-    Some("}") -> consume_single_character(lexer, Ok(token.RightBrace))
-    Some(",") -> consume_single_character(lexer, Ok(token.Comma))
-    Some(".") -> consume_single_character(lexer, Ok(token.Dot))
-    Some("-") -> consume_single_character(lexer, Ok(token.Minus))
-    Some("+") -> consume_single_character(lexer, Ok(token.Plus))
-    Some(";") -> consume_single_character(lexer, Ok(token.Semicolon))
-    Some("*") -> consume_single_character(lexer, Ok(token.Star))
+    Some("(") -> consume_single(lexer, Ok(Token(token.LeftParen, lexer.line)))
+    Some(")") -> consume_single(lexer, Ok(Token(token.RightParen, lexer.line)))
+    Some("{") -> consume_single(lexer, Ok(Token(token.LeftBrace, lexer.line)))
+    Some("}") -> consume_single(lexer, Ok(Token(token.RightBrace, lexer.line)))
+    Some(",") -> consume_single(lexer, Ok(Token(token.Comma, lexer.line)))
+    Some(".") -> consume_single(lexer, Ok(Token(token.Dot, lexer.line)))
+    Some("-") -> consume_single(lexer, Ok(Token(token.Minus, lexer.line)))
+    Some("+") -> consume_single(lexer, Ok(Token(token.Plus, lexer.line)))
+    Some(";") -> consume_single(lexer, Ok(Token(token.Semicolon, lexer.line)))
+    Some("*") -> consume_single(lexer, Ok(Token(token.Star, lexer.line)))
 
     Some(" ") | Some("\r") | Some("\t") -> shift(lexer)
     Some("\n") -> Lexer(..lexer, line: lexer.line + 1) |> shift
 
     Some("!") ->
       case peak(shift(lexer)) {
-        Some("=") -> consume_double_character(lexer, Ok(token.NotEqual))
-        _ -> consume_single_character(lexer, Ok(token.Bang))
+        Some("=") ->
+          consume_double(lexer, Ok(Token(token.NotEqual, lexer.line)))
+        _ -> consume_single(lexer, Ok(Token(token.Bang, lexer.line)))
       }
     Some("=") ->
       case peak(shift(lexer)) {
-        Some("=") -> consume_double_character(lexer, Ok(token.EqualEqual))
-        _ -> consume_single_character(lexer, Ok(token.Equal))
+        Some("=") ->
+          consume_double(lexer, Ok(Token(token.EqualEqual, lexer.line)))
+        _ -> consume_single(lexer, Ok(Token(token.Equal, lexer.line)))
       }
     Some(">") ->
       case peak(shift(lexer)) {
-        Some("=") -> consume_double_character(lexer, Ok(token.GreaterEqual))
-        _ -> consume_single_character(lexer, Ok(token.Greater))
+        Some("=") ->
+          consume_double(lexer, Ok(Token(token.GreaterEqual, lexer.line)))
+        _ -> consume_single(lexer, Ok(Token(token.Greater, lexer.line)))
       }
     Some("<") ->
       case peak(shift(lexer)) {
-        Some("=") -> consume_double_character(lexer, Ok(token.LessEqual))
-        _ -> consume_single_character(lexer, Ok(token.Less))
+        Some("=") ->
+          consume_double(lexer, Ok(Token(token.LessEqual, lexer.line)))
+        _ -> consume_single(lexer, Ok(Token(token.Less, lexer.line)))
       }
     Some("/") ->
       case peak(shift(lexer)) {
         Some("/") -> consume_comment(lexer)
-        _ -> consume_single_character(lexer, Ok(token.Slash))
+        _ -> consume_single(lexer, Ok(Token(token.Slash, lexer.line)))
       }
 
     Some(c) ->
-      consume_single_character(
+      consume_single(
         lexer,
         Error(LexicalError(UnexpectedCharacter(c), lexer.line)),
       )
@@ -146,7 +151,8 @@ fn consume_string(lexer: Lexer, acc: String) -> Lexer {
   case peak(lexer) {
     // The closing "
     Some("\"") -> {
-      let tokens = list.append(tokens, [Ok(token.String(acc))])
+      let tokens =
+        list.append(tokens, [Ok(Token(token.String(acc), lexer.line))])
       Lexer(..lexer, tokens:) |> shift
     }
     Some("\n") ->
@@ -171,7 +177,11 @@ fn lex_number(lexer) -> Lexer {
   }
 
   case token.parse_number(acc) {
-    Ok(tok) -> Lexer(..lexer, tokens: list.append(lexer.tokens, [Ok(tok)]))
+    Ok(tok) ->
+      Lexer(
+        ..lexer,
+        tokens: list.append(lexer.tokens, [Ok(Token(tok, lexer.line))]),
+      )
 
     Error(_) -> {
       let tokens =
@@ -204,8 +214,11 @@ fn is_need_consume_fraction(lexer) -> Bool {
 fn lex_identifier(lexer) -> Lexer {
   let #(idt_str, lexer) = consume_identifier(lexer, "")
   let tokens = case to_keyword(idt_str) {
-    Some(tok) -> list.append(lexer.tokens, [Ok(tok)])
-    None -> list.append(lexer.tokens, [Ok(token.Identifier(idt_str))])
+    Some(tok) -> list.append(lexer.tokens, [Ok(Token(tok, lexer.line))])
+    None ->
+      list.append(lexer.tokens, [
+        Ok(Token(token.Identifier(idt_str), lexer.line)),
+      ])
   }
   Lexer(..lexer, tokens:)
 }
@@ -218,7 +231,7 @@ fn consume_identifier(lexer, acc) -> #(String, Lexer) {
   }
 }
 
-fn to_keyword(char) -> Option(Token) {
+fn to_keyword(char) -> Option(TokenType) {
   case char {
     "and" -> Some(token.And)
     "class" -> Some(token.Class)
@@ -240,12 +253,12 @@ fn to_keyword(char) -> Option(Token) {
   }
 }
 
-fn consume_single_character(lexer: Lexer, result: LexicalResult) -> Lexer {
+fn consume_single(lexer: Lexer, result: LexicalResult) -> Lexer {
   Lexer(..lexer, tokens: list.append(lexer.tokens, [result]))
   |> shift
 }
 
-fn consume_double_character(lexer, result) -> Lexer {
-  consume_single_character(lexer, result)
+fn consume_double(lexer, result) -> Lexer {
+  consume_single(lexer, result)
   |> shift
 }

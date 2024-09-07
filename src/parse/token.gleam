@@ -3,6 +3,10 @@ import gleam/int
 import gleam/option.{type Option, None, Some}
 
 pub type Token {
+  Token(token_type: TokenType, line: Int)
+}
+
+pub type TokenType {
   // Single-character tokens.
   LeftParen
   RightParen
@@ -52,14 +56,14 @@ pub type Token {
   EOF
 }
 
-pub fn to_string(token: Token) -> String {
+pub fn to_string(token: TokenType) -> String {
   let token_type = token_type_string(token)
   let lexeme = to_lexeme(token)
   let literal = option.unwrap(to_literal(token), "null")
   token_type <> " " <> lexeme <> " " <> literal
 }
 
-pub fn token_type_string(token: Token) -> String {
+pub fn token_type_string(token: TokenType) -> String {
   case token {
     LeftParen -> "LeftParen"
     RightParen -> "RightParen"
@@ -107,7 +111,7 @@ pub fn token_type_string(token: Token) -> String {
   }
 }
 
-pub fn to_lexeme(token: Token) -> String {
+pub fn to_lexeme(token: TokenType) -> String {
   case token {
     LeftParen -> "("
     RightParen -> ")"
@@ -155,7 +159,7 @@ pub fn to_lexeme(token: Token) -> String {
   }
 }
 
-pub fn to_literal(token: Token) -> Option(String) {
+pub fn to_literal(token: TokenType) -> Option(String) {
   case token {
     String(string) -> Some(string)
     Number(number) -> Some(float.to_string(number))
@@ -163,7 +167,7 @@ pub fn to_literal(token: Token) -> Option(String) {
   }
 }
 
-pub fn parse_number(str) -> Result(Token, Nil) {
+pub fn parse_number(str) -> Result(TokenType, Nil) {
   case float.parse(str) {
     Ok(number) -> Ok(Number(number))
     Error(_) ->
