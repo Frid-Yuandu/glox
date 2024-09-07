@@ -1,12 +1,12 @@
 import gleam/bool
 import gleam/int
+
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 
 import lexer/predicate.{is_alpha, is_alphanumeric, is_digit, is_quotation_mark}
-
-import token.{type Token}
+import lexer/token.{type Token}
 
 pub type LexicalResult =
   Result(Token, LexicalError)

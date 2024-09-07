@@ -2,8 +2,8 @@ import gleam/list
 import gleam/option
 import gleam/string
 import gleeunit/should
-import lexer
-import token
+import lexer/lexer
+import lexer/token
 
 pub fn should_lex_single_character_tokens_test() {
   let source = ";(+{,.}-*)"

@@ -3,8 +3,8 @@ import gleam/iterator
 import gleam/list
 import gleam/result
 
-import lexer
-import token
+import lexer/lexer
+import lexer/token
 
 import argv
 import simplifile

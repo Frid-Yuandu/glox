@@ -55,10 +55,7 @@ pub type Token {
 pub fn to_string(token: Token) -> String {
   let token_type = token_type_string(token)
   let lexeme = to_lexeme(token)
-  let literal = case to_literal(token) {
-    Some(l) -> l
-    None -> "null"
-  }
+  let literal = option.unwrap(to_literal(token), "null")
   token_type <> " " <> lexeme <> " " <> literal
 }
 
