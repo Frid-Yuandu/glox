@@ -1,10 +1,13 @@
 import gleam/io
 import gleam/iterator
 import gleam/list
+import gleam/option.{Some}
 import gleam/result
 
-import lexer/lexer
-import lexer/token
+import ast_printer
+import parse/lexer.{type LexicalResult}
+import parse/token
+import parser
 
 import argv
 import simplifile
@@ -24,10 +27,9 @@ pub fn main() {
 fn run_file(path: String) -> Nil {
   case simplifile.read(path) {
     Ok(content) -> {
-      let lex_result = run(content)
-      case list.any(lex_result.tokens, result.is_error) {
-        True -> exit(65)
-        False -> exit(0)
+      case run(content) {
+        Error(_) -> exit(65)
+        Ok(_) -> exit(0)
       }
     }
     Error(_) -> exit(64)
@@ -37,26 +39,38 @@ fn run_file(path: String) -> Nil {
 fn run_prompt() -> Nil {
   stdin()
   |> iterator.each(fn(line) {
-    run(line)
+    let _ = run(line)
     io.print("> ")
   })
 }
 
-fn run(source: String) -> lexer.Lexer {
-  let lex_result =
-    lexer.from_string(source)
-    |> lexer.lex_tokens()
+fn run(source: String) {
+  let lexer = lexer.lex_tokens(lexer.from_string(source))
+  print_errors(lexer.tokens)
+  print_tokens(lexer.tokens)
 
-  lex_result.tokens
-  |> print_errors
+  let lex_res = case list.all(lexer.tokens, result.is_ok) {
+    True -> Ok(lexer.tokens)
+    False -> Error(parser.ParseError)
+  }
 
-  lex_result.tokens
-  |> print_tokens
+  use tokens <- result.try(lex_res)
 
-  lex_result
+  let parse_res =
+    tokens
+    |> list.map(result.unwrap(_, token.Token(token.EOF, 1)))
+    |> parser.from_tokens()
+    |> parser.parse
+
+  case parse_res {
+    Ok(Some(expr)) -> ast_printer.inspect(expr) |> io.println
+    _ -> Nil
+  }
+
+  parse_res
 }
 
-fn print_errors(tokens: List(lexer.LexicalResult)) -> Nil {
+fn print_errors(tokens: List(LexicalResult)) -> Nil {
   tokens
   |> list.filter(result.is_error)
   |> list.each(fn(item) {
@@ -67,12 +81,12 @@ fn print_errors(tokens: List(lexer.LexicalResult)) -> Nil {
   })
 }
 
-fn print_tokens(tokens: List(lexer.LexicalResult)) -> Nil {
+fn print_tokens(tokens: List(LexicalResult)) -> Nil {
   tokens
   |> list.filter(result.is_ok)
   |> list.each(fn(item) {
     case item {
-      Ok(tok) -> token.to_string(tok) |> io.println
+      Ok(tok) -> token.to_string(tok.token_type) |> io.println
       _ -> Nil
     }
   })
