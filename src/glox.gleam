@@ -5,7 +5,7 @@ import gleam/option.{Some}
 import gleam/result
 
 import ast_printer
-import parse/lexer.{type LexicalResult}
+import parse/lexer.{type LexResult}
 import parse/token
 import parser
 
@@ -71,7 +71,7 @@ fn run(source: String) {
   parse_res
 }
 
-fn print_errors(tokens: List(LexicalResult)) -> Nil {
+fn print_errors(tokens: List(LexResult)) -> Nil {
   tokens
   |> list.filter(result.is_error)
   |> list.each(fn(item) {
@@ -82,7 +82,7 @@ fn print_errors(tokens: List(LexicalResult)) -> Nil {
   })
 }
 
-fn print_tokens(tokens: List(LexicalResult)) -> Nil {
+fn print_tokens(tokens: List(LexResult)) -> Nil {
   tokens
   |> list.filter(result.is_ok)
   |> list.each(fn(item) {
