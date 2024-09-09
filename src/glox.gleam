@@ -45,16 +45,17 @@ fn run_prompt() -> Nil {
 }
 
 fn run(source: String) {
-  let lexer = lexer.lex_tokens(lexer.from_string(source))
-  print_errors(lexer.tokens)
-  print_tokens(lexer.tokens)
+  let tokens = lexer.new(source) |> lexer.collect
 
-  let lex_res = case list.all(lexer.tokens, result.is_ok) {
-    True -> Ok(lexer.tokens)
+  print_errors(tokens)
+  print_tokens(tokens)
+
+  let lex_result = case list.all(tokens, result.is_ok) {
+    True -> Ok(tokens)
     False -> Error(parser.ParseError)
   }
 
-  use tokens <- result.try(lex_res)
+  use tokens <- result.try(lex_result)
 
   let parse_res =
     tokens
