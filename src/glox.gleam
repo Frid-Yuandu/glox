@@ -45,30 +45,31 @@ fn run_prompt() -> Nil {
 }
 
 fn run(source: String) {
-  let tokens = lexer.new(source) |> lexer.collect
+  todo
+  // let tokens = lexer.new(source) |> lexer.collect
 
-  print_errors(tokens)
-  print_tokens(tokens)
+  // print_errors(tokens)
+  // print_tokens(tokens)
 
-  let lex_result = case list.all(tokens, result.is_ok) {
-    True -> Ok(tokens)
-    False -> Error(parser.ParseError)
-  }
+  // let lex_result = case list.all(tokens, result.is_ok) {
+  //   True -> Ok(tokens)
+  //   False -> Error(parser.ParseError(parser.LexError(), 1))
+  // }
 
-  use tokens <- result.try(lex_result)
+  // use tokens <- result.try(lex_result)
 
-  let parse_res =
-    tokens
-    |> list.map(result.unwrap(_, token.Token(token.EOF, 1)))
-    |> parser.from_tokens()
-    |> parser.parse
+  // let parse_res =
+  //   tokens
+  //   |> list.map(result.unwrap(_, token.Token(token.EOF, 1)))
+  //   |> parser.from_tokens()
+  //   |> parser.parse
 
-  case parse_res {
-    Ok(Some(expr)) -> ast_printer.inspect(expr) |> io.println
-    _ -> Nil
-  }
+  // case parse_res {
+  //   Ok(Some(expr)) -> ast_printer.inspect(expr) |> io.println
+  //   _ -> Nil
+  // }
 
-  parse_res
+  // parse_res
 }
 
 fn print_errors(tokens: List(LexResult)) -> Nil {

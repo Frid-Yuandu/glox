@@ -1,11 +1,13 @@
 import gleam/bool
 import gleam/float
+import gleam/io
 import gleam/option.{None, Some}
 import parse/token
 
 import expr
 
 pub fn inspect(expr: expr.Expr) -> String {
+  io.debug(expr)
   case expr {
     expr.Literal(value) ->
       case value {
