@@ -7,7 +7,7 @@ import gleam/string
 import parse/predicate.{is_alpha, is_alphanumeric, is_digit, is_quotation_mark}
 import parse/token.{type Token, type TokenType, Token}
 
-pub type LexicalResult =
+pub type LexResult =
   Result(Token, LexicalError)
 
 pub type LexicalError {
@@ -33,14 +33,14 @@ pub fn inspect_error(err: LexicalError) -> String {
 pub type Lexer {
   Lexer(
     source: String,
-    pending: Option(LexicalResult),
+    pending: Option(LexResult),
     char0: Option(String),
     char1: Option(String),
     line: Int,
   )
 }
 
-pub fn new(source: String) -> Iterator(LexicalResult) {
+pub fn new(source: String) -> Iterator(LexResult) {
   Lexer(source:, pending: None, char0: None, char1: None, line: 1)
   |> advance
   |> advance
@@ -56,11 +56,11 @@ fn advance(lexer: Lexer) -> Lexer {
   }
 }
 
-pub fn collect(lexer: Iterator(LexicalResult)) -> List(LexicalResult) {
+pub fn collect(lexer: Iterator(LexResult)) -> List(LexResult) {
   iterator.to_list(lexer)
 }
 
-fn to_iter(lexer: Lexer) -> Iterator(LexicalResult) {
+fn to_iter(lexer: Lexer) -> Iterator(LexResult) {
   use lexer <- iterator.unfold(lexer)
 
   case next(lexer) {
@@ -69,7 +69,7 @@ fn to_iter(lexer: Lexer) -> Iterator(LexicalResult) {
   }
 }
 
-fn next(lexer: Lexer) -> #(LexicalResult, Lexer) {
+fn next(lexer: Lexer) -> #(LexResult, Lexer) {
   let lexer = lex_token(lexer)
   case lexer.pending {
     None -> #(Ok(Token(token.EOF, lexer.line)), lexer)
@@ -253,6 +253,6 @@ fn consume_error(lexer: Lexer, error: LexicalError) -> Lexer {
   |> advance
 }
 
-fn add_token(lexer: Lexer, result: LexicalResult) -> Lexer {
+fn add_token(lexer: Lexer, result: LexResult) -> Lexer {
   Lexer(..lexer, pending: Some(result))
 }
