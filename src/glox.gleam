@@ -1,12 +1,9 @@
 import gleam/io
 import gleam/iterator
-import gleam/list
 import gleam/option.{Some}
-import gleam/result
+import printer
 
-import ast_printer
-import parse/lexer.{type LexResult}
-import parse/token
+import parse/lexer
 import parser
 
 import argv
@@ -45,53 +42,17 @@ fn run_prompt() -> Nil {
 }
 
 fn run(source: String) {
-  todo
-  // let tokens = lexer.new(source) |> lexer.collect
-
-  // print_errors(tokens)
-  // print_tokens(tokens)
-
-  // let lex_result = case list.all(tokens, result.is_ok) {
-  //   True -> Ok(tokens)
-  //   False -> Error(parser.ParseError(parser.LexError(), 1))
-  // }
-
-  // use tokens <- result.try(lex_result)
-
-  // let parse_res =
-  //   tokens
-  //   |> list.map(result.unwrap(_, token.Token(token.EOF, 1)))
-  //   |> parser.from_tokens()
-  //   |> parser.parse
-
-  // case parse_res {
-  //   Ok(Some(expr)) -> ast_printer.inspect(expr) |> io.println
-  //   _ -> Nil
-  // }
-
-  // parse_res
-}
-
-fn print_errors(tokens: List(LexResult)) -> Nil {
-  tokens
-  |> list.filter(result.is_error)
-  |> list.each(fn(item) {
-    case item {
-      Error(err) -> lexer.inspect_error(err) |> io.println_error
-      _ -> Nil
+  source
+  |> lexer.new
+  |> parser.new
+  |> parser.parse
+  |> fn(result) {
+    case result {
+      Ok(Some(e)) -> printer.inspect(e)
+      _ -> ""
     }
-  })
-}
-
-fn print_tokens(tokens: List(LexResult)) -> Nil {
-  tokens
-  |> list.filter(result.is_ok)
-  |> list.each(fn(item) {
-    case item {
-      Ok(tok) -> token.to_string(tok.token_type) |> io.println
-      _ -> Nil
-    }
-  })
+    result
+  }
 }
 
 @external(erlang, "exit_ffi", "do_exit")
