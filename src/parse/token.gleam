@@ -3,7 +3,7 @@ import gleam/int
 import gleam/option.{type Option, None, Some}
 
 pub type Token {
-  Token(token_type: TokenType, line: Int)
+  Token(type_: TokenType, line: Int)
 }
 
 pub type TokenType {

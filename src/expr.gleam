@@ -12,5 +12,5 @@ pub type LiteralValue {
   Number(value: Float)
   String(value: String)
   Bool(value: Bool)
-  NilLiteral(Nil)
+  NilLiteral
 }

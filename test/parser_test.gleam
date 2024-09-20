@@ -1,4 +1,3 @@
-import gleam/io
 import gleam/iterator
 import gleam/list
 import gleam/option.{None, Some}
@@ -43,17 +42,25 @@ pub fn should_parse_primary_false_test() {
 }
 
 pub fn should_parse_primary_nil_test() {
-  let wanted = Ok(Some(Literal(expr.NilLiteral(Nil))))
+  let wanted = Ok(Some(Literal(expr.NilLiteral)))
 
   [token.NilLiteral]
   |> parse_wanted
   |> should.equal(wanted)
 }
 
-pub fn should_parse_parentheses_source_test() {
+pub fn should_not_parse_empty_parentheses_test() {
   let wanted = Ok(Some(Grouping(None)))
 
   [token.LeftParen, token.RightParen]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_parse_non_empty_parentheses_test() {
+  let wanted = Ok(Some(Grouping(Some(expr.Literal(expr.Number(1.0))))))
+
+  [token.LeftParen, token.Number(1.0), token.RightParen]
   |> parse_wanted
   |> should.equal(wanted)
 }
