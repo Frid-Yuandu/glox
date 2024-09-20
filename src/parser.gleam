@@ -1,6 +1,8 @@
 import gleam/bool
+import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import printer
 
 import expr.{type Expr}
 import gleam/iterator.{type Iterator}
@@ -22,10 +24,32 @@ pub type ParseError {
 }
 
 pub type ParseErrorType {
-  ExpectedValue
+  ExpectValue
+  ExpectExpression
   UnexpectedToken(TokenType)
-  LexError(lexer.LexicalErrorType)
+  LexError(lexer.LexicalError)
   UnclosedParenthesis
+}
+
+pub fn inspect_error(err: ParseError) -> String {
+  case err {
+    ParseError(ExpectValue, line) ->
+      "Expected a value on line " <> int.to_string(line)
+    ParseError(ExpectExpression, line) ->
+      "Expected an expression on line " <> int.to_string(line)
+    ParseError(UnexpectedToken(tok), line) ->
+      "Unexpected token '"
+      <> token.to_string(tok)
+      <> "' on line "
+      <> int.to_string(line)
+    ParseError(LexError(lex_error), line) ->
+      "Lexical error: "
+      <> lexer.inspect_error(lex_error)
+      <> " on line "
+      <> int.to_string(line)
+    ParseError(UnclosedParenthesis, line) ->
+      "Unclosed parenthesis on line " <> int.to_string(line)
+  }
 }
 
 pub type ParseResult =
@@ -53,7 +77,15 @@ fn advance(parser: Parser) -> Parser {
 }
 
 pub fn parse(parser: Parser) -> ParseResult {
-  expression(parser).result
+  let parser = expression(parser)
+  let parser = case parser.lex_errors {
+    [] -> parser
+    [err, ..] -> {
+      printer.print_errors(parser.lex_errors)
+      Parser(..parser, result: Error(ParseError(LexError(err), err.line)))
+    }
+  }
+  parser.result
 }
 
 fn expression(parser: Parser) -> Parser {
@@ -101,7 +133,7 @@ fn parse_successive_binary(
       |> parse_successive_binary(operators, func)
     }
     Ok(None) ->
-      Parser(..right_parser, result: Error(ParseError(ExpectedValue, op.line)))
+      Parser(..right_parser, result: Error(ParseError(ExpectValue, op.line)))
     Error(_) -> right_parser
   }
 }
@@ -111,7 +143,7 @@ fn is_successive(parser: Parser, operators: List(TokenType)) -> Bool {
     Ok(Some(_)) -> True
     _ -> False
   }
-  let current_token = option.unwrap(parser.tok0, Token(token.EOF, 1)).token_type
+  let current_token = option.unwrap(parser.tok0, Token(token.EOF, 1)).type_
   let match_operator = list.contains(operators, current_token)
   !have_left_operand || !match_operator
 }
@@ -129,7 +161,7 @@ fn unary(parser: Parser) -> Parser {
         Ok(None) ->
           Parser(
             ..right_parser,
-            result: Error(ParseError(ExpectedValue, op.line)),
+            result: Error(ParseError(ExpectValue, op.line)),
           )
         Error(_) -> right_parser
       }
@@ -153,21 +185,55 @@ fn primary(parser: Parser) -> Parser {
       Parser(..parser, result: Ok(Some(expr.Literal(expr.Bool(False)))))
       |> advance
     Some(Token(token.NilLiteral, _)) ->
-      Parser(..parser, result: Ok(Some(expr.Literal(expr.NilLiteral(Nil)))))
+      Parser(..parser, result: Ok(Some(expr.Literal(expr.NilLiteral))))
       |> advance
     Some(Token(token.LeftParen, _) as paren) -> {
-      let sub_parser = expression(advance(Parser(..parser, result: Ok(None))))
-      case sub_parser.result, sub_parser.tok0 {
-        Ok(e), Some(Token(token.RightParen, _)) ->
-          Parser(..sub_parser, result: Ok(Some(expr.Grouping(e)))) |> advance
-        Ok(_), _ ->
-          Parser(
-            ..sub_parser,
-            result: Error(ParseError(UnclosedParenthesis, paren.line)),
-          )
-        Error(_), _ -> sub_parser
+      case parser.tok1 {
+        // consume empty grouping
+        Some(Token(token.RightParen, _)) ->
+          Parser(..parser, result: Ok(Some(expr.Grouping(None))))
+          |> advance
+          |> advance
+        // consume non-empty grouping
+        _ -> {
+          let sub_parser =
+            expression(advance(Parser(..parser, result: Ok(None))))
+          case sub_parser.result, sub_parser.tok0 {
+            Ok(e), Some(Token(token.RightParen, _)) ->
+              Parser(..sub_parser, result: Ok(Some(expr.Grouping(e))))
+              |> advance
+            Ok(_), _ ->
+              Parser(
+                ..sub_parser,
+                result: Error(ParseError(UnclosedParenthesis, paren.line)),
+              )
+            Error(_), _ -> sub_parser
+          }
+        }
       }
     }
+    // FIXME: how to mix the closed right parenthesis and the unclosed parenthesis?
+    Some(t) ->
+      Parser(..parser, result: Error(ParseError(ExpectExpression, t.line)))
     _ -> parser
+  }
+}
+
+// Used in future.
+fn synchronize(parser: Parser) -> Parser {
+  let parser = advance(parser)
+
+  case parser.tok0, parser.tok1 {
+    Some(Token(token.Semicolon, _)), _ | None, _ -> parser
+    _, Some(Token(token.Class, _))
+    | _, Some(Token(token.Fun, _))
+    | _, Some(Token(token.Var, _))
+    | _, Some(Token(token.For, _))
+    | _, Some(Token(token.If, _))
+    | _, Some(Token(token.While, _))
+    | _, Some(Token(token.Print, _))
+    | _, Some(Token(token.Return, _))
+    -> parser
+    _, _ -> synchronize(parser)
   }
 }
