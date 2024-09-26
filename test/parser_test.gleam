@@ -3,9 +3,9 @@ import gleam/list
 import gleam/option.{None, Some}
 import gleeunit/should
 
-import expr.{Binary, Grouping, Literal, Unary}
+import parse
+import parse/expr.{Binary, Grouping, Literal, Unary}
 import parse/token.{Token}
-import parser
 
 // parse literal
 
@@ -21,6 +21,14 @@ pub fn should_parse_primary_string_test() {
   let wanted = Ok(Some(Literal(expr.String("hello"))))
 
   [token.String("hello")]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_parse_primary_escape_string_test() {
+  let wanted = Ok(Some(Literal(expr.String("\n"))))
+
+  [token.String("\n")]
   |> parse_wanted
   |> should.equal(wanted)
 }
@@ -370,15 +378,15 @@ pub fn should_parse_inequality_test() {
 
 // helper
 
-fn parse_wanted(wanted: List(token.TokenType)) -> parser.ParseResult {
+fn parse_wanted(wanted: List(token.TokenType)) -> parse.ParseResult {
   wanted
   |> list.map(fn(tok) {
     let tok = wrap(tok)
     Ok(tok)
   })
   |> iterator.from_list
-  |> parser.new
-  |> parser.parse
+  |> parse.new
+  |> parse.parse
 }
 
 fn wrap(token_type: token.TokenType) -> token.Token {
