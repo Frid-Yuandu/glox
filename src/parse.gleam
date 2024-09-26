@@ -1,14 +1,41 @@
+//// Syntax formal of Lox:
+////    program -> statement* ;
+////
+////    statement -> expr_stmt | print_stmt ;
+////
+////    expr_stmt -> expression ";" ;
+////
+////    print_stmt -> "print" expression ";" ;
+////
+////    expression -> equality ;
+////
+////    equality -> comparison ( ( "!=" | "==" ) comparison )* ;
+////
+////    comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+////
+////    term -> factor ( ( "+" | "-" ) factor )* ;
+////
+////    factor -> unary ( ( "/" | "*" ) unary)* ;
+////
+////    unary -> ( "!" | "-" ) unary | literal;
+////
+////    literal -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
+
 import gleam/bool
-import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
-import printer
 
-import expr.{type Expr}
 import gleam/iterator.{type Iterator}
-import parse/lexer.{type LexResult, type LexicalError}
+import parse/error.{
+  type LexicalError, type ParseError, ExpectExpression, ExpectValue,
+  ExtraneousParenthesis, LexError, LexicalError, ParseError,
+  UnclosingParenthesis,
+}
+import parse/expr.{type Expr}
+import parse/lexer.{type LexResult}
 import parse/token.{type Token, type TokenType, Token}
 
+// TODO: Could this transform to a iterator too?
 pub type Parser {
   Parser(
     tokens: Iterator(LexResult),
@@ -17,39 +44,6 @@ pub type Parser {
     tok0: Option(Token),
     tok1: Option(Token),
   )
-}
-
-pub type ParseError {
-  ParseError(error: ParseErrorType, line: Int)
-}
-
-pub type ParseErrorType {
-  ExpectValue
-  ExpectExpression
-  UnexpectedToken(TokenType)
-  LexError(lexer.LexicalError)
-  UnclosedParenthesis
-}
-
-pub fn inspect_error(err: ParseError) -> String {
-  case err {
-    ParseError(ExpectValue, line) ->
-      "Expected a value on line " <> int.to_string(line)
-    ParseError(ExpectExpression, line) ->
-      "Expected an expression on line " <> int.to_string(line)
-    ParseError(UnexpectedToken(tok), line) ->
-      "Unexpected token '"
-      <> token.to_string(tok)
-      <> "' on line "
-      <> int.to_string(line)
-    ParseError(LexError(lex_error), line) ->
-      "Lexical error: "
-      <> lexer.inspect_error(lex_error)
-      <> " on line "
-      <> int.to_string(line)
-    ParseError(UnclosedParenthesis, line) ->
-      "Unclosed parenthesis on line " <> int.to_string(line)
-  }
 }
 
 pub type ParseResult =
@@ -80,12 +74,26 @@ pub fn parse(parser: Parser) -> ParseResult {
   let parser = expression(parser)
   let parser = case parser.lex_errors {
     [] -> parser
-    [err, ..] -> {
-      printer.print_errors(parser.lex_errors)
+    [err, ..] ->
       Parser(..parser, result: Error(ParseError(LexError(err), err.line)))
-    }
   }
   parser.result
+}
+
+fn program(parser: Parser) -> Parser {
+  todo
+}
+
+fn statement(parser: Parser) -> Parser {
+  todo
+}
+
+fn expr_stmt(parser: Parser) -> Parser {
+  todo
+}
+
+fn print_stmt(parser: Parser) -> Parser {
+  todo
 }
 
 fn expression(parser: Parser) -> Parser {
@@ -187,7 +195,7 @@ fn primary(parser: Parser) -> Parser {
     Some(Token(token.NilLiteral, _)) ->
       Parser(..parser, result: Ok(Some(expr.Literal(expr.NilLiteral))))
       |> advance
-    Some(Token(token.LeftParen, _) as paren) -> {
+    Some(Token(token.LeftParen, line)) ->
       case parser.tok1 {
         // consume empty grouping
         Some(Token(token.RightParen, _)) ->
@@ -205,14 +213,14 @@ fn primary(parser: Parser) -> Parser {
             Ok(_), _ ->
               Parser(
                 ..sub_parser,
-                result: Error(ParseError(UnclosedParenthesis, paren.line)),
+                result: Error(ParseError(UnclosingParenthesis, line)),
               )
             Error(_), _ -> sub_parser
           }
         }
       }
-    }
-    // FIXME: how to mix the closed right parenthesis and the unclosed parenthesis?
+    Some(Token(token.RightParen, line)) ->
+      Parser(..parser, result: Error(ParseError(ExtraneousParenthesis, line)))
     Some(t) ->
       Parser(..parser, result: Error(ParseError(ExpectExpression, t.line)))
     _ -> parser
