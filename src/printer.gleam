@@ -1,16 +1,15 @@
 import gleam/bool
 import gleam/float
 import gleam/io
-import gleam/list
 import gleam/option.{None, Some}
+import parse/error
 
+import parse/expr
 import parse/token
+import runtime_error
+import types
 
-import expr
-import parse/lexer
-
-pub fn inspect(expr: expr.Expr) -> String {
-  io.debug(expr)
+pub fn inspect_ast(expr: expr.Expr) -> String {
   case expr {
     expr.Literal(value) ->
       case value {
@@ -20,18 +19,18 @@ pub fn inspect(expr: expr.Expr) -> String {
         expr.NilLiteral -> "nil"
       }
     expr.Unary(op, right) ->
-      "(" <> token.to_lexeme(op.type_) <> inspect(right) <> ")"
+      "(" <> token.to_lexeme(op.type_) <> inspect_ast(right) <> ")"
     expr.Binary(left, op, right) ->
       "("
       <> token.to_lexeme(op.type_)
       <> " "
-      <> inspect(left)
+      <> inspect_ast(left)
       <> " "
-      <> inspect(right)
+      <> inspect_ast(right)
       <> ")"
     expr.Grouping(e) -> {
       let str = case e {
-        Some(e) -> inspect(e)
+        Some(e) -> inspect_ast(e)
         None -> "none"
       }
       "(" <> "gourp" <> " " <> str <> ")"
@@ -39,8 +38,17 @@ pub fn inspect(expr: expr.Expr) -> String {
   }
 }
 
-pub fn print_errors(tokens: List(lexer.LexicalError)) -> Nil {
-  tokens
-  |> list.map(lexer.inspect_error)
-  |> list.each(io.println_error)
+pub fn print_parse_error(err: error.ParseError) -> Nil {
+  error.inspect_parse_error(err)
+  |> io.println_error
+}
+
+pub fn print_runtime_error(err: runtime_error.RuntimeError) -> Nil {
+  runtime_error.inspect_runtime_error(err)
+  |> io.println_error
+}
+
+pub fn print_evaluated_object(obj: types.Object) -> Nil {
+  types.inspect_object(obj)
+  |> io.println
 }
