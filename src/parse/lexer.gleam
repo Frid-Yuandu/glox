@@ -1,34 +1,17 @@
 import gleam/bool
-import gleam/int
 import gleam/iterator.{type Iterator}
 import gleam/option.{type Option, None, Some}
 import gleam/string
 
+import parse/error.{
+  type LexicalError, FailedParseNumber, LexicalError, UnexpectedCharacter,
+  UnterminatedString,
+}
 import parse/predicate.{is_alpha, is_alphanumeric, is_digit, is_quotation_mark}
 import parse/token.{type Token, type TokenType, Token}
 
 pub type LexResult =
   Result(Token, LexicalError)
-
-pub type LexicalError {
-  LexicalError(error: LexicalErrorType, line: Int)
-}
-
-pub type LexicalErrorType {
-  UnterminatedString
-  UnexpectedCharacter(String)
-  FailedParseNumber(String)
-}
-
-pub fn inspect_error(err: LexicalError) -> String {
-  let msg = case err.error {
-    UnterminatedString -> "Unterminated string."
-    UnexpectedCharacter(c) -> "Unexpected character: " <> c
-    FailedParseNumber(n) -> "Failed to parse number, raw: " <> n
-  }
-
-  "[line " <> int.to_string(err.line) <> "] Error" <> ": " <> msg
-}
 
 pub type Lexer {
   Lexer(
@@ -54,10 +37,6 @@ fn advance(lexer: Lexer) -> Lexer {
 
     Error(Nil) -> Lexer(..lexer, char0: lexer.char1, char1: None)
   }
-}
-
-pub fn collect(lexer: Iterator(LexResult)) -> List(LexResult) {
-  iterator.to_list(lexer)
 }
 
 fn to_iter(lexer: Lexer) -> Iterator(LexResult) {
