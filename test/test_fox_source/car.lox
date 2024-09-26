@@ -1,0 +1,16 @@
+class Car {
+    init(brand, wheel, color) {
+        this.brand = brand;
+        this.wheel = wheel;
+        this.color = color;
+        print "here is a " + this.wheel + " wheel " + this.color + " color " + this.brand + " car~";
+    }
+
+    run() {
+        print this.brand + " car is running ...";
+    }
+}
+
+benz_car = Car("benz", 4, "silver");
+benz_car.color = "pale bule";
+benz_car.run();
