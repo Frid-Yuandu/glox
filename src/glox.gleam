@@ -1,6 +1,7 @@
 import gleam/io
 import gleam/iterator
-import gleam/option.{None, Some}
+import gleam/list
+import gleam/option
 import gleam/result
 
 import interpreter
@@ -9,7 +10,6 @@ import parse/error.{type ParseError}
 import parse/lexer
 import printer
 import runtime_error.{type RuntimeError}
-import types
 
 import argv
 import simplifile
@@ -30,7 +30,7 @@ fn run_file(path: String) -> Nil {
   case simplifile.read(path) {
     Ok(content) -> {
       case run(content) {
-        Empty | Object(_) -> exit(0)
+        Complete -> exit(0)
         FailedParse(_) -> exit(65)
         FailedRun(_) -> exit(70)
       }
@@ -48,31 +48,38 @@ fn run_prompt() -> Nil {
 }
 
 pub type RunResult {
-  Empty
-  Object(types.Object)
-  FailedParse(ParseError)
+  Complete
+  FailedParse(List(ParseError))
   FailedRun(RuntimeError)
 }
 
 fn run(source: String) -> RunResult {
-  let parse_rst =
+  let #(maybe_statements, parse_errors) =
     source
     |> lexer.new
     |> parse.new
     |> parse.parse
-    |> result.map_error(FailedParse)
+    |> result.partition
+
+  let parse_results = case parse_errors {
+    [] -> Ok(maybe_statements)
+    [_, ..] -> Error(FailedParse(parse_errors))
+  }
 
   let interpret_rst = {
-    use maybe_exp <- result.try(parse_rst)
-    case maybe_exp {
-      None -> Error(Empty)
-      Some(exp) -> Ok(interpreter.interpret(exp))
-    }
+    use maybe_statements <- result.try(parse_results)
+
+    maybe_statements
+    |> list.filter_map(fn(maybe) { option.to_result(maybe, Nil) })
+    |> interpreter.interpret
+    |> result.map_error(FailedRun)
   }
+
   let run_rst = case interpret_rst {
-    Error(rst) -> rst
-    Ok(Ok(obj)) -> Object(obj)
-    Ok(Error(err)) -> FailedRun(err)
+    Ok(Nil) -> Complete
+    Error(FailedRun(_) as err) -> err
+    Error(FailedParse(_) as err) -> err
+    _ -> panic
   }
   print_run_result(run_rst)
 
@@ -81,10 +88,9 @@ fn run(source: String) -> RunResult {
 
 pub fn print_run_result(rst: RunResult) -> Nil {
   case rst {
-    Empty -> Nil
-    FailedParse(err) -> printer.print_parse_error(err)
+    Complete -> Nil
+    FailedParse(errors) -> list.each(errors, printer.print_parse_error)
     FailedRun(err) -> printer.print_runtime_error(err)
-    Object(obj) -> printer.print_evaluated_object(obj)
   }
 }
 

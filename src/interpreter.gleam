@@ -1,9 +1,12 @@
 import gleam/bool
 import gleam/float
+import gleam/io
+import gleam/list
 import gleam/option.{None, Some}
 import gleam/result
 
 import parse/expr.{type Expr}
+import parse/stmt.{type Stmt}
 import parse/token
 import runtime_error.{
   type RuntimeError, DivideByZero, OperandMustBeNumber,
@@ -11,18 +14,39 @@ import runtime_error.{
 }
 import types.{type Object, Boolean, Class, NilVal, Num, Str}
 
-pub type Interpreter {
+pub type Interpreter(a) {
   Interpreter
 }
 
 pub type EvalResult =
   Result(Object, RuntimeError)
 
-pub fn interpret(exp: Expr) -> EvalResult {
-  evaluate(exp)
+pub type InterpretResult =
+  Result(Nil, RuntimeError)
+
+pub fn interpret(statements: List(Stmt)) -> InterpretResult {
+  use _acc, statement <- list.fold_until(statements, Ok(Nil))
+
+  case statement {
+    stmt.Print(exp) -> {
+      case evaluate(exp) {
+        Ok(obj) -> {
+          io.println(types.inspect_object(obj))
+          list.Continue(Ok(Nil))
+        }
+        Error(err) -> list.Stop(Error(err))
+      }
+    }
+    stmt.Expression(exp) -> {
+      case evaluate(exp) {
+        Ok(_) -> list.Continue(Ok(Nil))
+        Error(err) -> list.Stop(Error(err))
+      }
+    }
+  }
 }
 
-pub fn evaluate(exp: Expr) -> EvalResult {
+fn evaluate(exp: Expr) -> EvalResult {
   case exp {
     expr.Literal(literal) ->
       case literal {
