@@ -4,8 +4,12 @@ import gleam/option.{type Option, None, Some}
 import gleeunit/should
 
 import parse
-import parse/error
-import parse/expr.{Binary, Grouping, Literal, Unary}
+import parse/error.{
+  type ParseError, ExpectExpression, ExpectRightParenthesis, ExpectSemicolon,
+  ExpectValue, ExtraneousParenthesis, ExtraneousSemicolon, ParseError,
+  UnexpectedToken,
+}
+import parse/expr.{Binary, Grouping, Literal, Number, Unary}
 import parse/stmt
 import parse/token.{Token}
 
@@ -357,6 +361,115 @@ pub fn should_parse_inequality_test() {
   |> should.equal(wanted)
 }
 
+// parse error
+
+pub fn should_not_parse_unexpected_token_test() {
+  let expected_error = wrap_error(ParseError(UnexpectedToken(token.Plus), 1))
+
+  [token.Plus, token.Semicolon]
+  |> parse_wanted
+  |> should.equal(expected_error)
+}
+
+pub fn should_not_parse_missing_semicolon_test() {
+  let expected_error = Error(ParseError(ExpectSemicolon, 1))
+  let unexpected_stmt = Ok(Some(stmt.Expression(Literal(Number(1.0)))))
+  // Missing semicolon after number
+
+  let parse_result =
+    [token.Number(1.0)]
+    |> parse_wanted
+
+  should.be_true(
+    contains(parse_result, expected_error)
+    && !contains(parse_result, unexpected_stmt),
+  )
+}
+
+pub fn should_not_parse_unclosed_parenthesis_test() {
+  let expected_error = Error(ParseError(ExpectRightParenthesis, 1))
+  let unexpected_stmt =
+    Ok(Some(stmt.Expression(Grouping(Some(Literal(Number(1.0)))))))
+  // Unclosed parenthesis
+
+  let parse_result =
+    [token.LeftParen, token.Number(1.0), token.Semicolon]
+    |> parse_wanted
+
+  should.be_true(
+    contains(parse_result, expected_error)
+    && !contains(parse_result, unexpected_stmt),
+  )
+}
+
+pub fn should_not_parse_invalid_binary_operator_test() {
+  let expected_error = Error(ParseError(UnexpectedToken(token.Comma), 1))
+  let unexpected_stmt =
+    Ok(
+      Some(
+        stmt.Expression(Binary(
+          Literal(Number(1.0)),
+          Token(token.Comma, 1),
+          Literal(Number(2.0)),
+        )),
+      ),
+    )
+  // Invalid operator
+
+  let parse_result =
+    [token.Number(1.0), token.Comma, token.Number(2.0), token.Semicolon]
+    |> parse_wanted
+
+  should.be_true(
+    contains(parse_result, expected_error)
+    && !contains(parse_result, unexpected_stmt),
+  )
+}
+
+pub fn should_not_parse_missing_expression_test() {
+  let expected_error = wrap_error(ParseError(ExpectValue, 1))
+
+  [token.String("foo"), token.Plus, token.Semicolon]
+  // Missing expression after operator
+  |> parse_wanted
+  |> should.equal(expected_error)
+}
+
+pub fn should_not_parse_extraneous_semicolon_test() {
+  let expected_error = Error(ParseError(ExtraneousSemicolon, 1))
+  let expected_stmt = Ok(Some(stmt.Expression(Literal(Number(1.0)))))
+
+  let parse_result =
+    [token.Number(1.0), token.Semicolon, token.Semicolon]
+    |> parse_wanted
+
+  should.be_true(
+    contains(parse_result, expected_error)
+    && contains(parse_result, expected_stmt),
+  )
+}
+
+// FIXME: should synchronize expression when encounter a parse error.
+// pub fn should_not_parse_extraneous_parenthesis_test() {
+//   let expected_error = Error(ParseError(ExtraneousParenthesis, 1))
+
+//   let parse_result =
+//     [token.LeftParen, token.RightParen, token.RightParen, token.Semicolon]
+//     |> parse_wanted
+
+//   should.be_true(contains(parse_result, expected_error))
+// }
+
+pub fn should_not_parse_print_statement_missing_expression() {
+  let expected_error = Error(ParseError(ExpectExpression, 1))
+
+  let parse_result =
+    [token.Print, token.Semicolon]
+    |> parse_wanted
+
+  should.be_true(contains(parse_result, expected_error))
+}
+
 // helper
 
 fn parse_wanted(
@@ -377,4 +490,17 @@ fn wrap_expression(
   exp: expr.Expr,
 ) -> List(Result(Option(stmt.Stmt), error.ParseError)) {
   [Ok(Some(stmt.Expression(exp)))]
+}
+
+fn wrap_error(
+  err: ParseError,
+) -> List(Result(Option(stmt.Stmt), error.ParseError)) {
+  [Error(err)]
+}
+
+fn contains(
+  results: List(Result(Option(stmt.Stmt), ParseError)),
+  target: Result(Option(stmt.Stmt), ParseError),
+) -> Bool {
+  list.contains(results, target)
 }
