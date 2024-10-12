@@ -1,6 +1,6 @@
 import gleeunit/should
 
-import types
+import interpreter/types
 
 pub fn should_inspect_object_string_escape_test() {
   let given_obj = types.Str("\r")

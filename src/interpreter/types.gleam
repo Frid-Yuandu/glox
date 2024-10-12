@@ -14,14 +14,14 @@ pub type Object {
   // Fun(args: List(Object))
 }
 
-pub type Type {
-  NilType
-  BoolType
-  NumberType
-  StringType
-  Named(name: String)
-  FunType(arity: Int, return: Type)
-}
+// pub type Type {
+//   NilType
+//   BoolType
+//   NumberType
+//   StringType
+//   Named(name: String)
+//   FunType(arity: Int, return: Type)
+// }
 
 pub fn inspect_object(obj: Object) -> String {
   case obj {

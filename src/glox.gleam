@@ -5,11 +5,11 @@ import gleam/option
 import gleam/result
 
 import interpreter
+import interpreter/runtime_error.{type RuntimeError}
 import parse
 import parse/error.{type ParseError}
 import parse/lexer
 import printer
-import runtime_error.{type RuntimeError}
 
 import argv
 import simplifile

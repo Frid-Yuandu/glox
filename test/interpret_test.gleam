@@ -1,16 +1,15 @@
-import gleam/io
 import gleam/option.{None, Some}
 import gleeunit/should
 import parse/stmt
 
 import interpreter
-import parse/expr
-import parse/token.{Token}
-import runtime_error.{
+import interpreter/runtime_error.{
   DivideByZero, OperandMustBeNumber, OperandMustBeNumberOrString,
   OperandMustBeString, RuntimeError,
 }
-import types
+import interpreter/types
+import parse/expr
+import parse/token.{Token}
 
 pub fn should_interpret_literal_number_test() {
   let given_expr = [stmt.Expression(expr.Literal(expr.Number(1.0)))]

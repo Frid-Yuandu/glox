@@ -4,13 +4,14 @@ import gleam/io
 import gleam/option.{None, Some}
 import parse/error
 
+import interpreter/runtime_error
+import interpreter/types
 import parse/expr
 import parse/token
-import runtime_error
-import types
 
 pub fn inspect_ast(expr: expr.Expr) -> String {
   case expr {
+    expr.Variable(_) -> todo
     expr.Literal(value) ->
       case value {
         expr.Number(n) -> float.to_string(n)

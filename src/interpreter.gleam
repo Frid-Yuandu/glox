@@ -5,17 +5,18 @@ import gleam/list
 import gleam/option.{None, Some}
 import gleam/result
 
-import parse/expr.{type Expr}
-import parse/stmt.{type Stmt}
-import parse/token
-import runtime_error.{
+import interpreter/io_controller.{type IOInterface}
+import interpreter/runtime_error.{
   type RuntimeError, DivideByZero, OperandMustBeNumber,
   OperandMustBeNumberOrString, OperandMustBeString, RuntimeError,
 }
-import types.{type Object, Boolean, Class, NilVal, Num, Str}
+import interpreter/types.{type Object, Boolean, Class, NilVal, Num, Str}
+import parse/expr.{type Expr}
+import parse/stmt.{type Stmt}
+import parse/token
 
 pub type Interpreter(a) {
-  Interpreter
+  Interpreter(io: IOInterface(a))
 }
 
 pub type EvalResult =
@@ -43,11 +44,13 @@ pub fn interpret(statements: List(Stmt)) -> InterpretResult {
         Error(err) -> list.Stop(Error(err))
       }
     }
+    stmt.Declaration(_, _) -> todo
   }
 }
 
 fn evaluate(exp: Expr) -> EvalResult {
   case exp {
+    expr.Variable(_) -> todo
     expr.Literal(literal) ->
       case literal {
         expr.Number(n) -> Ok(Num(n))
