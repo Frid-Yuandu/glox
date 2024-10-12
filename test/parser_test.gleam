@@ -535,16 +535,15 @@ pub fn should_not_parse_extraneous_semicolon_test() {
   )
 }
 
-// FIXME: should synchronize expression when encounter a parse error.
-// pub fn should_not_parse_extraneous_parenthesis_test() {
-//   let expected_error = Error(ParseError(ExtraneousParenthesis, 1))
+pub fn should_not_parse_extraneous_parenthesis_test() {
+  let expected_error = Error(ParseError(ExtraneousParenthesis, 1))
 
-//   let parse_result =
-//     [token.LeftParen, token.RightParen, token.RightParen, token.Semicolon]
-//     |> parse_wanted
+  let parse_result =
+    [token.RightParen, token.Semicolon]
+    |> parse_wanted
 
-//   should.be_true(contains(parse_result, expected_error))
-// }
+  should.be_true(contains(parse_result, expected_error))
+}
 
 pub fn should_not_parse_print_statement_missing_expression() {
   let expected_error = Error(ParseError(ExpectExpression, 1))
