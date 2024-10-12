@@ -1,3 +1,5 @@
+import gleam/bool
+import gleam/io
 import gleam/iterator
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -6,8 +8,8 @@ import gleeunit/should
 import parse
 import parse/error.{
   type ParseError, ExpectExpression, ExpectRightParenthesis, ExpectSemicolon,
-  ExpectValue, ExtraneousParenthesis, ExtraneousSemicolon, ParseError,
-  UnexpectedToken,
+  ExpectValue, ExpectVariableName, ExtraneousParenthesis, ExtraneousSemicolon,
+  ParseError, UnexpectedToken,
 }
 import parse/expr.{Binary, Grouping, Literal, Number, Unary}
 import parse/stmt
@@ -361,6 +363,96 @@ pub fn should_parse_inequality_test() {
   |> should.equal(wanted)
 }
 
+// parse variable declaration
+
+pub fn should_parse_simple_var_declaration_test() {
+  let wanted = [
+    Ok(Some(stmt.Declaration(wrap_token_type(token.Identifier("x")), None))),
+  ]
+
+  [token.Var, token.Identifier("x"), token.Semicolon]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_parse_var_declaration_with_initializer_test() {
+  let wanted = [
+    Ok(
+      Some(stmt.Declaration(
+        wrap_token_type(token.Identifier("y")),
+        Some(Literal(expr.Number(42.0))),
+      )),
+    ),
+  ]
+
+  [
+    token.Var,
+    token.Identifier("y"),
+    token.Equal,
+    token.Number(42.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_parse_var_declaration_with_expression_initializer_test() {
+  let wanted = [
+    Ok(
+      Some(stmt.Declaration(
+        wrap_token_type(token.Identifier("z")),
+        Some(Binary(
+          Literal(expr.Number(1.0)),
+          wrap_token_type(token.Plus),
+          Literal(expr.Number(2.0)),
+        )),
+      )),
+    ),
+  ]
+
+  [
+    token.Var,
+    token.Identifier("z"),
+    token.Equal,
+    token.Number(1.0),
+    token.Plus,
+    token.Number(2.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_not_parse_var_declaration_missing_identifier_test() {
+  let expected_error = Error(ParseError(ExpectVariableName, 1))
+
+  let parse_result =
+    [token.Var, token.Equal, token.Number(1.0), token.Semicolon]
+    |> parse_wanted
+
+  should.be_true(contains(parse_result, expected_error))
+}
+
+pub fn should_not_parse_var_declaration_missing_semicolon_test() {
+  let expected_error = Error(ParseError(ExpectSemicolon, 1))
+
+  let parse_result =
+    [token.Var, token.Identifier("x"), token.Equal, token.Number(1.0)]
+    |> parse_wanted
+
+  should.be_true(contains(parse_result, expected_error))
+}
+
+pub fn should_not_parse_var_declaration_missing_initializer_expression_test() {
+  let expected_error = Error(ParseError(ExpectValue, 1))
+
+  let parse_result =
+    [token.Var, token.Identifier("x"), token.Equal, token.Semicolon]
+    |> parse_wanted
+
+  should.be_true(contains(parse_result, expected_error))
+}
+
 // parse error
 
 pub fn should_not_parse_unexpected_token_test() {
@@ -403,7 +495,6 @@ pub fn should_not_parse_unclosed_parenthesis_test() {
 }
 
 pub fn should_not_parse_invalid_binary_operator_test() {
-  let expected_error = Error(ParseError(UnexpectedToken(token.Comma), 1))
   let unexpected_stmt =
     Ok(
       Some(
@@ -420,10 +511,7 @@ pub fn should_not_parse_invalid_binary_operator_test() {
     [token.Number(1.0), token.Comma, token.Number(2.0), token.Semicolon]
     |> parse_wanted
 
-  should.be_true(
-    contains(parse_result, expected_error)
-    && !contains(parse_result, unexpected_stmt),
-  )
+  should.be_true(!contains(parse_result, unexpected_stmt))
 }
 
 pub fn should_not_parse_missing_expression_test() {

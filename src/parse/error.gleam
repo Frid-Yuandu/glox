@@ -40,6 +40,7 @@ pub type ParseErrorType {
   ExpectExpression
   ExpectSemicolon
   ExpectRightParenthesis
+  ExpectVariableName
 
   ExtraneousParenthesis
   ExtraneousSemicolon
@@ -49,30 +50,35 @@ pub type ParseErrorType {
 
 pub fn inspect_parse_error(err: ParseError) -> String {
   case err.error {
-    ExpectValue -> "Expect a value on line " <> int.to_string(err.line)
-    ExpectExpression ->
-      "Expect an expression on line " <> int.to_string(err.line)
-    UnexpectedToken(tok) ->
-      "Unexpected token '"
-      <> token.to_string(tok)
-      <> "' on line "
-      <> int.to_string(err.line)
     LexError(lex_error) ->
       "Lexical error: "
       <> inspect_lex_error(lex_error)
       <> " on line "
       <> int.to_string(err.line)
-    ExtraneousParenthesis ->
-      "Extraneous closing parenthesis \")\": " <> int.to_string(err.line)
+
+    ExpectValue -> "Expect a value on line " <> int.to_string(err.line)
+    ExpectExpression ->
+      "Expect an expression on line " <> int.to_string(err.line)
     ExpectRightParenthesis ->
       "Expect right parenthtsis \")\" after expression on line "
       <> int.to_string(err.line)
     ExpectSemicolon ->
       "Expect semicolon \";\" after expression on line "
       <> int.to_string(err.line)
+    ExpectVariableName ->
+      "Expect variable name on line " <> int.to_string(err.line)
+
+    ExtraneousParenthesis ->
+      "Extraneous closing parenthesis \")\": " <> int.to_string(err.line)
     ExtraneousSemicolon ->
       "Extraneous semicolon \";\" after expression on line "
       <> int.to_string(err.line)
       <> ", please remove it"
+
+    UnexpectedToken(tok) ->
+      "Unexpected token '"
+      <> token.to_string(tok)
+      <> "' on line "
+      <> int.to_string(err.line)
   }
 }

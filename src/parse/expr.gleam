@@ -6,6 +6,7 @@ pub type Expr {
   Unary(op: Token, right: Expr)
   Binary(left: Expr, op: Token, right: Expr)
   Grouping(expr: Option(Expr))
+  Variable(name: Token)
 }
 
 pub type LiteralValue {

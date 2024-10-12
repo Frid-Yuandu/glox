@@ -1,14 +1,22 @@
-//// This module encapsulates the parsing logic for the Lox programming language, translating a sequence of tokens into an Abstract Syntax Tree (AST). It follows the formal grammar of Lox, dealing with statements, expressions, and error handling.
+//// This module encapsulates the parsing logic for the Lox programming language,
+//// translating a sequence of tokens into an Abstract Syntax Tree (AST). It
+//// follows the formal grammar of Lox, dealing with statements, expressions,
+//// and error handling.
 ////
 //// ## Core Features
 ////
-//// - **Token Processing**: Sequentially processes tokens to construct the program's structure.
-//// - **Grammar Adherence**: Aligns with Lox's grammar rules for statements, expressions, and operator precedences.
-//// - **Error Management**: Detects and reports lexical and syntax errors, including recovery mechanisms.
+//// - **Token Processing**: Sequentially processes tokens to construct the
+////   program's structure.
+//// - **Grammar Adherence**: Aligns with Lox's grammar rules for statements,
+////   expressions, and operator precedences.
+//// - **Error Management**: Detects and reports lexical and syntax errors,
+////   including recovery mechanisms.
 ////
 //// ## Syntax formal of Lox
 ////
-////    program -> statement* ;
+////    program -> declaration* ;
+////    declaration -> var_decl | statement;
+////    var_decl -> "var" IDENTIFIER ( "=" expression )? ";" ;
 ////    statement -> expr_stmt | print_stmt ;
 ////    expr_stmt -> expression ";" ;
 ////    print_stmt -> "print" expression ";" ;
@@ -18,20 +26,27 @@
 ////    term -> factor ( ( "+" | "-" ) factor )* ;
 ////    factor -> unary ( ( "/" | "*" ) unary)* ;
 ////    unary -> ( "!" | "-" ) unary | literal;
-////    literal -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
+////    literal -> "true" | "false" | "nil"
+////             | NUMBER | STRING | "(" expression ")" | IDENTIFIER ;
 ////
 //// ## Public API
 ////
 //// - **`new(tokens: Iterator(LexResult)) -> Iterator(Result(Option(Stmt)))`**
-////   Initializes the parser with an iterator of lexical analysis results. Returns an iterator of parsing outcomes, each being a statement wrapped in a `Result` and an optional indicating the end of input.
+////   Initializes the parser with an iterator of lexical analysis results.
+////   Returns an iterator of parsing outcomes, each being a statement wrapped
+////   in a `Result` and an optional indicating the end of input.
 ////
 //// - **`parse(iter: Iterator(Result(Option(Stmt)))) -> List(Result(Option(Stmt)))`**
-////   Consumes an iterator of parse results, collecting them into a list for further processing or inspection.
+////   Consumes an iterator of parse results, collecting them into a list for
+////   further processing or inspection.
 ////
 //// - **Other Exposed Types**
 ////   - `Parser`: Represents the parser state and drives the parsing process.
-////   - `Result(t)`: Wraps parsing results or errors, using `ParseError` to communicate syntax issues.
-////   - Functions like `statement`, `expr_stmt`, and `print_stmt` directly contribute to parsing statements and expressions, although they are typically used internally.
+////   - `Result(t)`: Wraps parsing results or errors, using `ParseError` to
+////     communicate syntax issues.
+////   - Functions like `statement`, `expr_stmt`, and `print_stmt` directly
+////     contribute to parsing statements and expressions, although they are
+////     typically used internally.
 ////
 //// ## Usage Example
 ////
@@ -52,6 +67,7 @@
 
 import gleam
 import gleam/bool
+import gleam/io
 import gleam/iterator.{type Iterator}
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -59,13 +75,13 @@ import gleam/result
 
 import parse/error.{
   type LexicalError, type ParseError, ExpectExpression, ExpectRightParenthesis,
-  ExpectSemicolon, ExpectValue, ExtraneousParenthesis, ExtraneousSemicolon,
-  LexError, LexicalError, ParseError, UnexpectedToken,
+  ExpectSemicolon, ExpectValue, ExpectVariableName, ExtraneousParenthesis,
+  ExtraneousSemicolon, LexError, LexicalError, ParseError, UnexpectedToken,
 }
 
 import parse/expr.{type Expr}
 import parse/lexer.{type LexResult}
-import parse/stmt.{type Stmt, Expression, Print}
+import parse/stmt.{type Stmt, Declaration, Expression, Print}
 import parse/token.{type Token, type TokenType, Token}
 
 pub type Parser {
@@ -91,7 +107,7 @@ pub fn new(tokens: Iterator(LexResult)) -> Iterator(Result(Option(Stmt))) {
 fn to_iter(parser: Parser) -> Iterator(Result(Option(Stmt))) {
   use parser <- iterator.unfold(parser)
 
-  case statement(parser) {
+  case declaration(parser) {
     #(Ok(None), _) -> iterator.Done
     #(rst, parser) -> iterator.Next(rst, parser)
   }
@@ -114,6 +130,71 @@ fn advance(parser: Parser) -> Parser {
 
 pub fn parse(iter: Iterator(Result(Option(Stmt)))) -> List(Result(Option(Stmt))) {
   iterator.to_list(iter)
+}
+
+fn declaration(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+  let #(rst, parser) = case parser.tok0 {
+    Some(Token(token.Var, _)) -> var_declaration(parser)
+    _ -> statement(parser)
+  }
+  case rst, parser {
+    Error(_), parser -> #(rst, synchronize(parser))
+    Ok(_), _ -> #(rst, parser)
+  }
+}
+
+fn var_declaration(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+  let #(rst, parser) = var_declaration_inner(parser)
+  case rst {
+    Ok(s) -> #(Ok(Some(s)), parser)
+    Error(err) -> #(Error(err), parser)
+  }
+}
+
+/// var_declaration_inner parse a result of statement, because a `None` variable
+/// declaration doesn't make sense.
+fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
+  let assert Some(var_kw) = parser.tok0
+  let parser = advance(parser)
+
+  use <- bool.guard(!match(parser, token.Identifier("")), #(
+    Error(ParseError(ExpectVariableName, var_kw.line)),
+    parser,
+  ))
+  let assert Some(var_name) = parser.tok0
+  let parser = advance(parser)
+
+  // FIXME: should consume semicolon correctly
+  case parser.tok0 {
+    // initialized variable declaration
+    Some(Token(token.Equal, eq_line)) -> {
+      let #(rst, parser) = advance(parser) |> expression
+      let parse_decl_rst = case rst {
+        Ok(Some(_) as initializer) ->
+          case parser.tok0 {
+            Some(Token(token.Semicolon, _)) ->
+              Ok(Declaration(var_name, initializer))
+            _ -> Error(ParseError(ExpectSemicolon, var_kw.line))
+          }
+        Ok(None) -> Error(ParseError(ExpectValue, eq_line))
+        Error(err) -> Error(err)
+      }
+      let new_parser = case parse_decl_rst {
+        Ok(_) -> advance(parser)
+        _ -> parser
+      }
+
+      #(parse_decl_rst, new_parser)
+    }
+
+    // variable declaration without initialization
+    Some(Token(token.Semicolon, _)) -> #(
+      Ok(Declaration(var_name, None)),
+      advance(parser),
+    )
+
+    _ -> #(Error(ParseError(ExpectSemicolon, var_kw.line)), parser)
+  }
 }
 
 fn statement(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
@@ -170,7 +251,7 @@ fn print_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
 }
 
 fn print_stmt_inner(parser: Parser) -> #(Result(Stmt), Parser) {
-  // If this assertion panic, there must be a wrong call
+  // remain the print token in order to get line for error report.
   let assert Some(print_kw) = parser.tok0
   // Consume print keyword and parse expression
   let #(rst, new_parser) = expression(advance(parser))
@@ -313,6 +394,12 @@ fn primary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
       advance(parser),
     )
 
+    // Variable
+    Some(Token(token.Identifier(_), _) as tok) -> #(
+      Ok(Some(expr.Variable(tok))),
+      advance(parser),
+    )
+
     // Grouping
     Some(Token(token.LeftParen, line)) ->
       case parser.tok1 {
@@ -354,11 +441,11 @@ fn primary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   }
 }
 
-// Used in future.
 fn synchronize(parser: Parser) -> Parser {
+  let #(tok0, tok1) = #(parser.tok0, parser.tok1)
   let parser = advance(parser)
 
-  case parser.tok0, parser.tok1 {
+  case tok0, tok1 {
     Some(Token(token.Semicolon, _)), _ | None, _ -> parser
     _, Some(Token(token.Class, _))
     | _, Some(Token(token.Fun, _))
@@ -370,5 +457,15 @@ fn synchronize(parser: Parser) -> Parser {
     | _, Some(Token(token.Return, _))
     -> parser
     _, _ -> synchronize(parser)
+  }
+}
+
+fn match(parser: Parser, token_type: TokenType) -> Bool {
+  case parser.tok0, token_type {
+    Some(Token(token.Number(_), _)), token.Number(_) -> True
+    Some(Token(token.String(_), _)), token.String(_) -> True
+    Some(Token(token.Identifier(_), _)), token.Identifier(_) -> True
+    Some(Token(type_, _)), _ if type_ == token_type -> True
+    _, _ -> False
   }
 }
