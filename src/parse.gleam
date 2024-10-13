@@ -67,7 +67,6 @@
 
 import gleam
 import gleam/bool
-import gleam/io
 import gleam/iterator.{type Iterator}
 import gleam/list
 import gleam/option.{type Option, None, Some}
