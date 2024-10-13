@@ -1,0 +1,7 @@
+---
+version: 1.2.3
+title: unary expression statements
+file: ./test/interpret_test.gleam
+test_name: should_interpret_apply_bang_on_false_as_true_test
+---
+Ok(None)

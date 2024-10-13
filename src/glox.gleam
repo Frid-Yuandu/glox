@@ -66,17 +66,19 @@ fn run(source: String) -> RunResult {
     [_, ..] -> Error(FailedParse(parse_errors))
   }
 
+  let interpreter = interpreter.new()
+
   let interpret_rst = {
     use maybe_statements <- result.try(parse_results)
 
     maybe_statements
     |> list.filter_map(fn(maybe) { option.to_result(maybe, Nil) })
-    |> interpreter.interpret
+    |> interpreter.interpret(interpreter, _)
     |> result.map_error(FailedRun)
   }
 
   let run_rst = case interpret_rst {
-    Ok(Nil) -> Complete
+    Ok(_) -> Complete
     Error(FailedRun(_) as err) -> err
     Error(FailedParse(_) as err) -> err
     _ -> panic
@@ -86,7 +88,7 @@ fn run(source: String) -> RunResult {
   run_rst
 }
 
-pub fn print_run_result(rst: RunResult) -> Nil {
+fn print_run_result(rst: RunResult) -> Nil {
   case rst {
     Complete -> Nil
     FailedParse(errors) -> list.each(errors, printer.print_parse_error)

@@ -1,0 +1,10 @@
+---
+version: 1.2.3
+title: error in add not number or string type
+file: ./test/interpret_test.gleam
+test_name: should_error_in_addition_non_number_or_string_types_test
+---
+Error(RuntimeError(
+  Token(Plus, 1),
+  OperandMustBeNumberOrString,
+))

@@ -1,0 +1,10 @@
+---
+version: 1.2.3
+title: error in add number with non-number
+file: ./test/interpret_test.gleam
+test_name: should_error_on_add_number_and_non_number_types_test
+---
+Error(RuntimeError(
+  Token(Plus, 1),
+  OperandMustBeNumber,
+))

@@ -1,10 +1,11 @@
 import gleam/bool
+import gleam/dict
 import gleam/float
-import gleam/io
 import gleam/list
-import gleam/option.{None, Some}
+import gleam/option.{type Option, None, Some}
 import gleam/result
 
+import interpreter/environment.{type Environment, Environment}
 import interpreter/io_controller.{type IOInterface}
 import interpreter/runtime_error.{
   type RuntimeError, DivideByZero, OperandMustBeNumber,
@@ -16,31 +17,48 @@ import parse/stmt.{type Stmt}
 import parse/token
 
 pub type Interpreter(a) {
-  Interpreter(io: IOInterface(a))
+  Interpreter(env: Environment, io: IOInterface(a))
+}
+
+pub fn new() -> Interpreter(Nil) {
+  Interpreter(env: Environment(dict.new()), io: io_controller.default_io())
 }
 
 pub type EvalResult =
   Result(Object, RuntimeError)
 
-pub type InterpretResult =
-  Result(Nil, RuntimeError)
+// a represent the interpreter output. In common cases such as write to stdout/stderr
+// it is nil, and in test environment it maybe fn() -> String.
+pub type InterpretResult(a) =
+  Result(Option(a), RuntimeError)
 
-pub fn interpret(statements: List(Stmt)) -> InterpretResult {
-  use _acc, statement <- list.fold_until(statements, Ok(Nil))
+/// interpret interprets the provided statements and return the interpret result
+/// of the last statement. This function will exhaust the statements unless a
+/// runtime error is occured.
+///
+/// NOTE: Behaviour may change!
+pub fn interpret(
+  interpreter: Interpreter(a),
+  statements: List(Stmt),
+) -> InterpretResult(a) {
+  use _acc, statement <- list.fold_until(statements, Ok(None))
 
   case statement {
     stmt.Print(exp) -> {
       case evaluate(exp) {
         Ok(obj) -> {
-          io.println(types.inspect_object(obj))
-          list.Continue(Ok(Nil))
+          let output =
+            types.inspect_object(obj)
+            |> interpreter.io.write_stdout
+
+          list.Continue(Ok(Some(output)))
         }
         Error(err) -> list.Stop(Error(err))
       }
     }
     stmt.Expression(exp) -> {
       case evaluate(exp) {
-        Ok(_) -> list.Continue(Ok(Nil))
+        Ok(_) -> list.Continue(Ok(None))
         Error(err) -> list.Stop(Error(err))
       }
     }
@@ -48,7 +66,7 @@ pub fn interpret(statements: List(Stmt)) -> InterpretResult {
   }
 }
 
-fn evaluate(exp: Expr) -> EvalResult {
+pub fn evaluate(exp: Expr) -> EvalResult {
   case exp {
     expr.Variable(_) -> todo
     expr.Literal(literal) ->
@@ -61,11 +79,6 @@ fn evaluate(exp: Expr) -> EvalResult {
     expr.Binary(left, op, right) -> {
       let left_val = evaluate(left)
       let right_val = evaluate(right)
-
-      // use <- bool.guard(result.is_error(left_val), left_val)
-      // use <- bool.guard(result.is_error(right_val), right_val)
-      // let assert Ok(left_val) = left_val
-      // let assert Ok(right_val) = right_val
 
       use left_val <- result.try(left_val)
       use right_val <- result.try(right_val)

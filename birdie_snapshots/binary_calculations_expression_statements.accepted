@@ -1,0 +1,7 @@
+---
+version: 1.2.3
+title: binary calculations expression statements
+file: ./test/interpret_test.gleam
+test_name: should_interpret_binary_calculations_test
+---
+Ok(None)
