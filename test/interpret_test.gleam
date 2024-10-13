@@ -14,10 +14,10 @@ import parse/token.{Token}
 
 pub fn should_interpret_literal_test() {
   let given_expr = [
-    stmt.Expression(expr.Literal(expr.String("test\tstring"))),
-    stmt.Expression(expr.Literal(expr.Bool(False))),
-    stmt.Expression(expr.Literal(expr.Number(1.0))),
-    stmt.Expression(expr.Literal(expr.NilLiteral)),
+    stmt.Expression(expr.String("test\tstring")),
+    stmt.Expression(expr.Boolean(False)),
+    stmt.Expression(expr.Number(1.0)),
+    stmt.Expression(expr.NilLiteral),
   ]
 
   new_test_interpreter()
@@ -29,17 +29,17 @@ pub fn should_interpret_literal_test() {
 
 pub fn should_interpret_apply_bang_on_false_as_true_test() {
   let given_expr = [
-    stmt.Expression(expr.Unary(
-      Token(token.Bang, 1),
-      expr.Literal(expr.Bool(False)),
+    stmt.Expression(expr.NegativeBool(
+      token: Token(token.Bang, 1),
+      value: expr.Boolean(False),
     )),
-    stmt.Expression(expr.Unary(
-      Token(token.Bang, 1),
-      expr.Literal(expr.NilLiteral),
+    stmt.Expression(expr.NegativeBool(
+      token: Token(token.Bang, 1),
+      value: expr.NilLiteral,
     )),
-    stmt.Expression(expr.Unary(
-      Token(token.Bang, 1),
-      expr.Literal(expr.Number(23_333.0)),
+    stmt.Expression(expr.NegativeBool(
+      token: Token(token.Bang, 1),
+      value: expr.Number(23_333.0),
     )),
   ]
 
@@ -53,29 +53,29 @@ pub fn should_interpret_apply_bang_on_false_as_true_test() {
 pub fn should_interpret_binary_calculations_test() {
   let given_expr = [
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(3.0)),
+      expr.Number(3.0),
       Token(token.Plus, 1),
-      expr.Literal(expr.Number(4.0)),
+      expr.Number(4.0),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.String("foo")),
+      expr.String("foo"),
       Token(token.Plus, 1),
-      expr.Literal(expr.String("bar")),
+      expr.String("bar"),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(7.0)),
+      expr.Number(7.0),
       Token(token.Minus, 1),
-      expr.Literal(expr.Number(3.0)),
+      expr.Number(3.0),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(3.0)),
+      expr.Number(3.0),
       Token(token.Star, 1),
-      expr.Literal(expr.Number(2.0)),
+      expr.Number(2.0),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(10.0)),
+      expr.Number(10.0),
       Token(token.Slash, 1),
-      expr.Literal(expr.Number(2.0)),
+      expr.Number(2.0),
     )),
   ]
 
@@ -87,69 +87,69 @@ pub fn should_interpret_binary_calculations_test() {
 pub fn should_interpret_equal_equal_test() {
   let given_expr = [
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(10.0)),
+      expr.Number(10.0),
       Token(token.Greater, 1),
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
       Token(token.GreaterEqual, 1),
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(2.0)),
+      expr.Number(2.0),
       Token(token.Less, 1),
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
       Token(token.LessEqual, 1),
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
       Token(token.NotEqual, 1),
-      expr.Literal(expr.Number(3.0)),
+      expr.Number(3.0),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
       Token(token.EqualEqual, 1),
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(10.0)),
+      expr.Number(10.0),
       Token(token.Greater, 1),
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
       Token(token.GreaterEqual, 1),
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(2.0)),
+      expr.Number(2.0),
       Token(token.Less, 1),
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
       Token(token.LessEqual, 1),
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
       Token(token.NotEqual, 1),
-      expr.Literal(expr.Number(3.0)),
+      expr.Number(3.0),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
       Token(token.EqualEqual, 1),
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
     )),
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
       Token(token.EqualEqual, 1),
-      expr.Literal(expr.Number(5.0)),
+      expr.Number(5.0),
     )),
   ]
 
@@ -163,9 +163,9 @@ pub fn should_interpret_equal_equal_test() {
 pub fn should_error_on_add_number_and_non_number_types_test() {
   let given_expr = [
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(1.0)),
+      expr.Number(1.0),
       Token(token.Plus, 1),
-      expr.Literal(expr.Bool(True)),
+      expr.Boolean(True),
     )),
   ]
 
@@ -177,9 +177,9 @@ pub fn should_error_on_add_number_and_non_number_types_test() {
 pub fn should_error_in_addition_non_number_or_string_types_test() {
   let given_expr = [
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.NilLiteral),
+      expr.NilLiteral,
       Token(token.Plus, 1),
-      expr.Literal(expr.Bool(False)),
+      expr.Boolean(False),
     )),
   ]
 
@@ -191,9 +191,9 @@ pub fn should_error_in_addition_non_number_or_string_types_test() {
 pub fn should_error_on_addition_string_and_non_string_test() {
   let given_expr = [
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.String("foo")),
+      expr.String("foo"),
       Token(token.Plus, 1),
-      expr.Literal(expr.Number(1.0)),
+      expr.Number(1.0),
     )),
   ]
 
@@ -205,9 +205,9 @@ pub fn should_error_on_addition_string_and_non_string_test() {
 pub fn should_error_on_subtraction_non_numbers_test() {
   let given_expr = [
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.String("foo")),
+      expr.String("foo"),
       Token(token.Minus, 1),
-      expr.Literal(expr.Number(1.0)),
+      expr.Number(1.0),
     )),
   ]
 
@@ -219,9 +219,9 @@ pub fn should_error_on_subtraction_non_numbers_test() {
 pub fn should_error_in_division_by_zero_test() {
   let given_expr = [
     stmt.Expression(expr.Binary(
-      expr.Literal(expr.Number(10.0)),
+      expr.Number(10.0),
       Token(token.Slash, 1),
-      expr.Literal(expr.Number(0.0)),
+      expr.Number(0.0),
     )),
   ]
 
@@ -237,9 +237,9 @@ pub fn should_interpret_grouping_expression_test() {
     stmt.Expression(
       expr.Grouping(
         Some(expr.Binary(
-          expr.Literal(expr.Number(3.0)),
+          expr.Number(3.0),
           Token(token.Plus, 1),
-          expr.Literal(expr.Number(4.0)),
+          expr.Number(4.0),
         )),
       ),
     ),

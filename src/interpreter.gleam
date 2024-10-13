@@ -11,8 +11,11 @@ import interpreter/runtime_error.{
   type RuntimeError, DivideByZero, OperandMustBeNumber,
   OperandMustBeNumberOrString, OperandMustBeString, RuntimeError,
 }
-import interpreter/types.{type Object, Boolean, Class, NilVal, Num, Str}
-import parse/expr.{type Expr}
+import interpreter/types.{type Object, BoolVal, Class, NilVal, Num, Str}
+import parse/expr.{
+  type Expr, Binary, Boolean, Grouping, NegativeBool, NegativeNumber, NilLiteral,
+  Number, String, Variable,
+}
 import parse/stmt.{type Stmt}
 import parse/token
 
@@ -69,13 +72,26 @@ pub fn interpret(
 pub fn evaluate(exp: Expr) -> EvalResult {
   case exp {
     expr.Variable(_) -> todo
-    expr.Literal(literal) ->
-      case literal {
-        expr.Number(n) -> Ok(Num(n))
-        expr.String(s) -> Ok(Str(s))
-        expr.Bool(b) -> Ok(Boolean(b))
-        expr.NilLiteral -> Ok(NilVal)
+
+    expr.Number(n) -> Ok(Num(n))
+    expr.String(s) -> Ok(Str(s))
+    expr.Boolean(b) -> Ok(BoolVal(b))
+    expr.NilLiteral -> Ok(NilVal)
+
+    expr.NegativeBool(right, _) -> {
+      let right_val = evaluate(right)
+      use right_val <- result.try(right_val)
+      Ok(BoolVal(!is_truthy(right_val)))
+    }
+    expr.NegativeNumber(right, tok) -> {
+      let right_val = evaluate(right)
+      use right_val <- result.try(right_val)
+      case right_val {
+        Num(n) -> Ok(Num(float.negate(n)))
+        _ -> Error(RuntimeError(token: tok, error: OperandMustBeNumber))
       }
+    }
+
     expr.Binary(left, op, right) -> {
       let left_val = evaluate(left)
       let right_val = evaluate(right)
@@ -113,26 +129,26 @@ pub fn evaluate(exp: Expr) -> EvalResult {
           }
         token.Greater ->
           case left_val, right_val {
-            Num(l), Num(r) -> Ok(Boolean(l >. r))
+            Num(l), Num(r) -> Ok(BoolVal(l >. r))
             _, _ -> Error(RuntimeError(op, OperandMustBeNumber))
           }
         token.GreaterEqual ->
           case left_val, right_val {
-            Num(l), Num(r) -> Ok(Boolean(l >=. r))
+            Num(l), Num(r) -> Ok(BoolVal(l >=. r))
             _, _ -> Error(RuntimeError(op, OperandMustBeNumber))
           }
         token.Less ->
           case left_val, right_val {
-            Num(l), Num(r) -> Ok(Boolean(l <. r))
+            Num(l), Num(r) -> Ok(BoolVal(l <. r))
             _, _ -> Error(RuntimeError(op, OperandMustBeNumber))
           }
         token.LessEqual ->
           case left_val, right_val {
-            Num(l), Num(r) -> Ok(Boolean(l <=. r))
+            Num(l), Num(r) -> Ok(BoolVal(l <=. r))
             _, _ -> Error(RuntimeError(op, OperandMustBeNumber))
           }
-        token.NotEqual -> Ok(Boolean(!is_equal(left_val, right_val)))
-        token.EqualEqual -> Ok(Boolean(is_equal(left_val, right_val)))
+        token.NotEqual -> Ok(BoolVal(!is_equal(left_val, right_val)))
+        token.EqualEqual -> Ok(BoolVal(is_equal(left_val, right_val)))
 
         _ -> panic
       }
@@ -142,21 +158,6 @@ pub fn evaluate(exp: Expr) -> EvalResult {
         None -> Ok(NilVal)
         Some(e) -> evaluate(e)
       }
-    expr.Unary(op, right) -> {
-      let right_val = evaluate(right)
-      use <- bool.guard(result.is_error(right_val), right_val)
-      let assert Ok(right_val) = right_val
-
-      case op.type_ {
-        token.Minus ->
-          case right_val {
-            Num(v) -> Ok(Num(float.negate(v)))
-            _ -> Error(RuntimeError(token: op, error: OperandMustBeNumber))
-          }
-        token.Bang -> Ok(Boolean(!is_truthy(right_val)))
-        _ -> panic
-      }
-    }
   }
 }
 
@@ -164,7 +165,7 @@ pub fn evaluate(exp: Expr) -> EvalResult {
 /// `false` and `nil` are falsey, and everything else are truthy.
 fn is_truthy(obj: Object) -> Bool {
   case obj {
-    Boolean(v) -> v
+    BoolVal(v) -> v
     NilVal -> False
     _ -> True
   }
@@ -176,7 +177,7 @@ fn is_equal(left: Object, right: Object) -> Bool {
     NilVal, NilVal -> True
     Num(l), Num(r) -> l == r
     Str(l), Str(r) -> l == r
-    Boolean(l), Boolean(r) -> l == r
+    BoolVal(l), BoolVal(r) -> l == r
     Class(l_name, l_fields), Class(r_name, r_fields) ->
       l_name == r_name && l_fields == r_fields
     _, _ -> False

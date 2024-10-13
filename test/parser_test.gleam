@@ -9,14 +9,16 @@ import parse/error.{
   ExpectValue, ExpectVariableName, ExtraneousParenthesis, ExtraneousSemicolon,
   ParseError, UnexpectedToken,
 }
-import parse/expr.{Binary, Grouping, Literal, Number, Unary}
+import parse/expr.{
+  Binary, Boolean, Grouping, NegativeBool, NegativeNumber, NilLiteral, Number,
+}
 import parse/stmt
 import parse/token.{Token}
 
 // parse literal
 
 pub fn should_parse_primary_number_test() {
-  let wanted = wrap_expression(Literal(expr.Number(1.0)))
+  let wanted = wrap_expression(Number(1.0))
 
   [token.Number(1.0), token.Semicolon]
   |> parse_wanted
@@ -24,7 +26,7 @@ pub fn should_parse_primary_number_test() {
 }
 
 pub fn should_parse_primary_string_test() {
-  let wanted = wrap_expression(Literal(expr.String("hello")))
+  let wanted = wrap_expression(expr.String("hello"))
 
   [token.String("hello"), token.Semicolon]
   |> parse_wanted
@@ -32,7 +34,7 @@ pub fn should_parse_primary_string_test() {
 }
 
 pub fn should_parse_primary_escape_string_test() {
-  let wanted = wrap_expression(Literal(expr.String("\n")))
+  let wanted = wrap_expression(expr.String("\n"))
 
   [token.String("\n"), token.Semicolon]
   |> parse_wanted
@@ -40,7 +42,7 @@ pub fn should_parse_primary_escape_string_test() {
 }
 
 pub fn should_parse_primary_true_test() {
-  let wanted = wrap_expression(Literal(expr.Bool(True)))
+  let wanted = wrap_expression(Boolean(True))
 
   [token.True, token.Semicolon]
   |> parse_wanted
@@ -48,7 +50,7 @@ pub fn should_parse_primary_true_test() {
 }
 
 pub fn should_parse_primary_false_test() {
-  let wanted = wrap_expression(Literal(expr.Bool(False)))
+  let wanted = wrap_expression(Boolean(False))
 
   [token.False, token.Semicolon]
   |> parse_wanted
@@ -56,7 +58,7 @@ pub fn should_parse_primary_false_test() {
 }
 
 pub fn should_parse_primary_nil_test() {
-  let wanted = wrap_expression(Literal(expr.NilLiteral))
+  let wanted = wrap_expression(expr.NilLiteral)
 
   [token.NilLiteral, token.Semicolon]
   |> parse_wanted
@@ -72,7 +74,7 @@ pub fn should_not_parse_empty_parentheses_test() {
 }
 
 pub fn should_parse_non_empty_parentheses_test() {
-  let wanted = wrap_expression(Grouping(Some(expr.Literal(expr.Number(1.0)))))
+  let wanted = wrap_expression(Grouping(Some(Number(1.0))))
 
   [token.LeftParen, token.Number(1.0), token.RightParen, token.Semicolon]
   |> parse_wanted
@@ -83,9 +85,9 @@ pub fn should_parse_non_empty_parentheses_test() {
 
 pub fn should_parse_unary_negative_test() {
   let wanted =
-    wrap_expression(Unary(
-      wrap_token_type(token.Minus),
-      Literal(expr.Number(2.4)),
+    wrap_expression(NegativeNumber(
+      token: wrap_token_type(token.Minus),
+      value: Number(2.4),
     ))
 
   [token.Minus, token.Number(2.4), token.Semicolon]
@@ -95,7 +97,10 @@ pub fn should_parse_unary_negative_test() {
 
 pub fn should_parse_unary_bang_test() {
   let wanted =
-    wrap_expression(Unary(wrap_token_type(token.Bang), Literal(expr.Bool(True))))
+    wrap_expression(NegativeBool(
+      token: wrap_token_type(token.Bang),
+      value: Boolean(True),
+    ))
 
   [token.Bang, token.True, token.Semicolon]
   |> parse_wanted
@@ -104,11 +109,14 @@ pub fn should_parse_unary_bang_test() {
 
 pub fn should_parse_successive_unary_bang_test() {
   let wanted =
-    wrap_expression(Unary(
-      wrap_token_type(token.Bang),
-      Unary(
-        wrap_token_type(token.Bang),
-        Unary(wrap_token_type(token.Bang), Literal(expr.Number(0.0))),
+    wrap_expression(NegativeBool(
+      token: wrap_token_type(token.Bang),
+      value: NegativeBool(
+        token: wrap_token_type(token.Bang),
+        value: NegativeBool(
+          token: wrap_token_type(token.Bang),
+          value: Number(0.0),
+        ),
       ),
     ))
 
@@ -119,11 +127,14 @@ pub fn should_parse_successive_unary_bang_test() {
 
 pub fn should_parse_successive_unary_negative_test() {
   let wanted =
-    wrap_expression(Unary(
-      wrap_token_type(token.Minus),
-      Unary(
-        wrap_token_type(token.Minus),
-        Unary(wrap_token_type(token.Minus), Literal(expr.Number(3.0))),
+    wrap_expression(NegativeNumber(
+      token: wrap_token_type(token.Minus),
+      value: NegativeNumber(
+        token: wrap_token_type(token.Minus),
+        value: NegativeNumber(
+          token: wrap_token_type(token.Minus),
+          value: Number(3.0),
+        ),
       ),
     ))
 
@@ -137,9 +148,9 @@ pub fn should_parse_successive_unary_negative_test() {
 pub fn should_parse_single_multiplication_test() {
   let wanted =
     wrap_expression(Binary(
-      Literal(expr.Number(5.0)),
+      Number(5.0),
       wrap_token_type(token.Star),
-      Literal(expr.Number(3.0)),
+      Number(3.0),
     ))
 
   [token.Number(5.0), token.Star, token.Number(3.0), token.Semicolon]
@@ -150,13 +161,9 @@ pub fn should_parse_single_multiplication_test() {
 pub fn should_parse_successive_factor_multiplication_test() {
   let wanted =
     wrap_expression(Binary(
-      Binary(
-        Literal(expr.Number(2.0)),
-        wrap_token_type(token.Star),
-        Literal(expr.Number(4.0)),
-      ),
+      Binary(Number(2.0), wrap_token_type(token.Star), Number(4.0)),
       wrap_token_type(token.Star),
-      Literal(expr.Number(8.0)),
+      Number(8.0),
     ))
 
   [
@@ -174,9 +181,9 @@ pub fn should_parse_successive_factor_multiplication_test() {
 pub fn should_parse_single_division_test() {
   let wanted =
     wrap_expression(Binary(
-      Literal(expr.Number(10.0)),
+      Number(10.0),
       wrap_token_type(token.Slash),
-      Literal(expr.Number(2.0)),
+      Number(2.0),
     ))
 
   [token.Number(10.0), token.Slash, token.Number(2.0), token.Semicolon]
@@ -187,13 +194,9 @@ pub fn should_parse_single_division_test() {
 pub fn should_parse_mixed_multiplication_and_division_test() {
   let wanted =
     wrap_expression(Binary(
-      Binary(
-        Literal(expr.Number(6.0)),
-        wrap_token_type(token.Slash),
-        Literal(expr.Number(3.0)),
-      ),
+      Binary(Number(6.0), wrap_token_type(token.Slash), Number(3.0)),
       wrap_token_type(token.Star),
-      Literal(expr.Number(2.0)),
+      Number(2.0),
     ))
 
   [
@@ -213,9 +216,9 @@ pub fn should_parse_mixed_multiplication_and_division_test() {
 pub fn should_parse_term_add_test() {
   let wanted =
     wrap_expression(Binary(
-      Literal(expr.Number(1.0)),
+      Number(1.0),
       wrap_token_type(token.Plus),
-      Literal(expr.Number(2.0)),
+      Number(2.0),
     ))
 
   [token.Number(1.0), token.Plus, token.Number(2.0), token.Semicolon]
@@ -226,13 +229,9 @@ pub fn should_parse_term_add_test() {
 pub fn should_parse_mixed_add_and_subtrace_test() {
   let wanted =
     wrap_expression(Binary(
-      Binary(
-        Literal(expr.Number(1.0)),
-        wrap_token_type(token.Plus),
-        Literal(expr.Number(0.4)),
-      ),
+      Binary(Number(1.0), wrap_token_type(token.Plus), Number(0.4)),
       wrap_token_type(token.Minus),
-      Literal(expr.Number(3.7)),
+      Number(3.7),
     ))
 
   [
@@ -260,9 +259,9 @@ pub fn should_parse_empty_source_test() {
 pub fn should_parse_less_than_test() {
   let wanted =
     wrap_expression(Binary(
-      Literal(expr.Number(1.0)),
+      Number(1.0),
       wrap_token_type(token.Less),
-      Literal(expr.Number(2.0)),
+      Number(2.0),
     ))
 
   [token.Number(1.0), token.Less, token.Number(2.0), token.Semicolon]
@@ -273,9 +272,9 @@ pub fn should_parse_less_than_test() {
 pub fn should_parse_greater_than_test() {
   let wanted =
     wrap_expression(Binary(
-      Literal(expr.Number(3.0)),
+      Number(3.0),
       wrap_token_type(token.Greater),
-      Literal(expr.Number(2.0)),
+      Number(2.0),
     ))
 
   [token.Number(3.0), token.Greater, token.Number(2.0), token.Semicolon]
@@ -286,9 +285,9 @@ pub fn should_parse_greater_than_test() {
 pub fn should_parse_less_or_equal_test() {
   let wanted =
     wrap_expression(Binary(
-      Literal(expr.Number(2.0)),
+      Number(2.0),
       wrap_token_type(token.LessEqual),
-      Literal(expr.Number(2.0)),
+      Number(2.0),
     ))
 
   [token.Number(2.0), token.LessEqual, token.Number(2.0), token.Semicolon]
@@ -299,9 +298,9 @@ pub fn should_parse_less_or_equal_test() {
 pub fn should_parse_greater_or_equal_test() {
   let wanted =
     wrap_expression(Binary(
-      Literal(expr.Number(3.0)),
+      Number(3.0),
       wrap_token_type(token.GreaterEqual),
-      Literal(expr.Number(3.0)),
+      Number(3.0),
     ))
 
   [token.Number(3.0), token.GreaterEqual, token.Number(3.0), token.Semicolon]
@@ -312,13 +311,9 @@ pub fn should_parse_greater_or_equal_test() {
 pub fn should_parse_successive_comparisons_test() {
   let wanted =
     wrap_expression(Binary(
-      Binary(
-        Literal(expr.Number(1.0)),
-        wrap_token_type(token.LessEqual),
-        Literal(expr.Number(2.0)),
-      ),
+      Binary(Number(1.0), wrap_token_type(token.LessEqual), Number(2.0)),
       wrap_token_type(token.LessEqual),
-      Literal(expr.Number(3.0)),
+      Number(3.0),
     ))
 
   [
@@ -338,9 +333,9 @@ pub fn should_parse_successive_comparisons_test() {
 pub fn should_parse_simple_equality_test() {
   let wanted =
     wrap_expression(Binary(
-      Literal(expr.Number(1.0)),
+      Number(1.0),
       wrap_token_type(token.EqualEqual),
-      Literal(expr.Number(1.0)),
+      Number(1.0),
     ))
 
   [token.Number(1.0), token.EqualEqual, token.Number(1.0), token.Semicolon]
@@ -351,9 +346,9 @@ pub fn should_parse_simple_equality_test() {
 pub fn should_parse_inequality_test() {
   let wanted =
     wrap_expression(Binary(
-      Literal(expr.Number(2.5)),
+      Number(2.5),
       wrap_token_type(token.NotEqual),
-      Literal(expr.Number(3.14)),
+      Number(3.14),
     ))
 
   [token.Number(2.5), token.NotEqual, token.Number(3.14), token.Semicolon]
@@ -378,7 +373,7 @@ pub fn should_parse_var_declaration_with_initializer_test() {
     Ok(
       Some(stmt.Declaration(
         wrap_token_type(token.Identifier("y")),
-        Some(Literal(expr.Number(42.0))),
+        Some(Number(42.0)),
       )),
     ),
   ]
@@ -399,11 +394,7 @@ pub fn should_parse_var_declaration_with_expression_initializer_test() {
     Ok(
       Some(stmt.Declaration(
         wrap_token_type(token.Identifier("z")),
-        Some(Binary(
-          Literal(expr.Number(1.0)),
-          wrap_token_type(token.Plus),
-          Literal(expr.Number(2.0)),
-        )),
+        Some(Binary(Number(1.0), wrap_token_type(token.Plus), Number(2.0))),
       )),
     ),
   ]
@@ -463,7 +454,7 @@ pub fn should_not_parse_unexpected_token_test() {
 
 pub fn should_not_parse_missing_semicolon_test() {
   let expected_error = Error(ParseError(ExpectSemicolon, 1))
-  let unexpected_stmt = Ok(Some(stmt.Expression(Literal(Number(1.0)))))
+  let unexpected_stmt = Ok(Some(stmt.Expression(Number(1.0))))
   // Missing semicolon after number
 
   let parse_result =
@@ -478,8 +469,7 @@ pub fn should_not_parse_missing_semicolon_test() {
 
 pub fn should_not_parse_unclosed_parenthesis_test() {
   let expected_error = Error(ParseError(ExpectRightParenthesis, 1))
-  let unexpected_stmt =
-    Ok(Some(stmt.Expression(Grouping(Some(Literal(Number(1.0)))))))
+  let unexpected_stmt = Ok(Some(stmt.Expression(Grouping(Some(Number(1.0))))))
   // Unclosed parenthesis
 
   let parse_result =
@@ -496,11 +486,7 @@ pub fn should_not_parse_invalid_binary_operator_test() {
   let unexpected_stmt =
     Ok(
       Some(
-        stmt.Expression(Binary(
-          Literal(Number(1.0)),
-          Token(token.Comma, 1),
-          Literal(Number(2.0)),
-        )),
+        stmt.Expression(Binary(Number(1.0), Token(token.Comma, 1), Number(2.0))),
       ),
     )
   // Invalid operator
@@ -523,7 +509,7 @@ pub fn should_not_parse_missing_expression_test() {
 
 pub fn should_not_parse_extraneous_semicolon_test() {
   let expected_error = Error(ParseError(ExtraneousSemicolon, 1))
-  let expected_stmt = Ok(Some(stmt.Expression(Literal(Number(1.0)))))
+  let expected_stmt = Ok(Some(stmt.Expression(Number(1.0))))
 
   let parse_result =
     [token.Number(1.0), token.Semicolon, token.Semicolon]

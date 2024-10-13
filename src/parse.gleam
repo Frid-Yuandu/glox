@@ -348,13 +348,23 @@ fn is_successive(
 
 fn unary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   case parser.tok0 {
-    Some(Token(token.Bang, _) as op) | Some(Token(token.Minus, _) as op) -> {
+    Some(Token(token.Bang, _) as op) -> {
       let #(rst, right_parser) as pair = unary(advance(parser))
       case rst {
         Ok(Some(right)) -> {
-          let new_exp = expr.Unary(op, right)
+          let new_exp = expr.NegativeBool(token: op, value: right)
           #(Ok(Some(new_exp)), right_parser)
-          // |> unary
+        }
+        Ok(None) -> #(Error(ParseError(ExpectValue, op.line)), right_parser)
+        Error(_) -> pair
+      }
+    }
+    Some(Token(token.Minus, _) as op) -> {
+      let #(rst, right_parser) as pair = unary(advance(parser))
+      case rst {
+        Ok(Some(right)) -> {
+          let new_exp = expr.NegativeNumber(token: op, value: right)
+          #(Ok(Some(new_exp)), right_parser)
         }
         Ok(None) -> #(Error(ParseError(ExpectValue, op.line)), right_parser)
         Error(_) -> pair
@@ -368,28 +378,29 @@ fn unary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
 
 fn primary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   case parser.tok0 {
-    // end parsing if encounter semicolon
+    // end parsing if encounter semicolon, don't consume semicolon here, it should
+    // be consumed at statement level.
     Some(Token(token.Semicolon, _)) -> #(Ok(None), parser)
 
     // Literal
     Some(Token(token.Number(n), _)) -> #(
-      Ok(Some(expr.Literal(expr.Number(n)))),
+      Ok(Some(expr.Number(n))),
       advance(parser),
     )
     Some(Token(token.String(s), _)) -> #(
-      Ok(Some(expr.Literal(expr.String(s)))),
+      Ok(Some(expr.String(s))),
       advance(parser),
     )
     Some(Token(token.True, _)) -> #(
-      Ok(Some(expr.Literal(expr.Bool(True)))),
+      Ok(Some(expr.Boolean(True))),
       advance(parser),
     )
     Some(Token(token.False, _)) -> #(
-      Ok(Some(expr.Literal(expr.Bool(False)))),
+      Ok(Some(expr.Boolean(False))),
       advance(parser),
     )
     Some(Token(token.NilLiteral, _)) -> #(
-      Ok(Some(expr.Literal(expr.NilLiteral))),
+      Ok(Some(expr.NilLiteral)),
       advance(parser),
     )
 

@@ -9,7 +9,7 @@ pub type Object {
   NilVal
   Num(Float)
   Str(String)
-  Boolean(Bool)
+  BoolVal(Bool)
   Class(name: String, fields: Dict(String, Object))
   // Fun(args: List(Object))
 }
@@ -26,7 +26,7 @@ pub type Object {
 pub fn inspect_object(obj: Object) -> String {
   case obj {
     NilVal -> "nil"
-    Boolean(b) -> bool.to_string(b)
+    BoolVal(b) -> bool.to_string(b)
     Num(n) -> float.to_string(n)
     Str(s) -> s
     Class(name:, fields:) -> {
