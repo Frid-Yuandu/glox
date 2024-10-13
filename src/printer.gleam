@@ -11,7 +11,7 @@ import parse/token
 
 pub fn inspect_ast(expr: expr.Expr) -> String {
   case expr {
-    expr.Variable(_) -> todo
+    expr.Variable(name) -> token.to_lexeme(name.type_)
     expr.Literal(value) ->
       case value {
         expr.Number(n) -> float.to_string(n)
