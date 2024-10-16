@@ -1,10 +1,11 @@
+import gleam/bool
 import gleam/io
 import gleam/iterator
 import gleam/list
 import gleam/option
 import gleam/result
 
-import interpreter
+import interpreter.{type Interpreter}
 import interpreter/runtime_error.{type RuntimeError}
 import parse
 import parse/error.{type ParseError}
@@ -29,7 +30,9 @@ pub fn main() {
 fn run_file(path: String) -> Nil {
   case simplifile.read(path) {
     Ok(content) -> {
-      case run(content) {
+      let interpreter = interpreter.new()
+      let #(rst, _) = run(interpreter, content)
+      case rst {
         Complete -> exit(0)
         FailedParse(_) -> exit(65)
         FailedRun(_) -> exit(70)
@@ -40,11 +43,15 @@ fn run_file(path: String) -> Nil {
 }
 
 fn run_prompt() -> Nil {
+  let interpreter = interpreter.new()
   stdin()
-  |> iterator.each(fn(line) {
-    let _ = run(line)
+  |> iterator.fold(from: interpreter, with: fn(interpreter, line) {
+    let #(_, interpreter) = run(interpreter, line)
     io.print("> ")
+    interpreter
   })
+
+  io.println("glox REPL exit.")
 }
 
 pub type RunResult {
@@ -53,7 +60,10 @@ pub type RunResult {
   FailedRun(RuntimeError)
 }
 
-fn run(source: String) -> RunResult {
+fn run(
+  interpreter: Interpreter(Nil),
+  source: String,
+) -> #(RunResult, Interpreter(Nil)) {
   let #(maybe_statements, parse_errors) =
     source
     |> lexer.new
@@ -66,15 +76,19 @@ fn run(source: String) -> RunResult {
     [_, ..] -> Error(FailedParse(parse_errors))
   }
 
-  let interpreter = interpreter.new()
+  let #(interpret_rst, interpreter) = {
+    use <- bool.lazy_guard(result.is_error(parse_results), fn() {
+      let assert Error(err) = parse_results
+      #(Error(err), interpreter)
+    })
+    let assert Ok(maybe_statements) = parse_results
 
-  let interpret_rst = {
-    use maybe_statements <- result.try(parse_results)
+    let #(interpret_rst, interpreter) =
+      maybe_statements
+      |> list.filter_map(fn(maybe) { option.to_result(maybe, Nil) })
+      |> interpreter.interpret(interpreter, _)
 
-    maybe_statements
-    |> list.filter_map(fn(maybe) { option.to_result(maybe, Nil) })
-    |> interpreter.interpret(interpreter, _)
-    |> result.map_error(FailedRun)
+    #(result.map_error(interpret_rst, FailedRun), interpreter)
   }
 
   let run_rst = case interpret_rst {
@@ -85,7 +99,7 @@ fn run(source: String) -> RunResult {
   }
   print_run_result(run_rst)
 
-  run_rst
+  #(run_rst, interpreter)
 }
 
 fn print_run_result(rst: RunResult) -> Nil {

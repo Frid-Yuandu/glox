@@ -3,6 +3,7 @@ import gleam/dict
 import gleam/float
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/pair
 import gleam/result
 
 import interpreter/environment.{type Environment, Environment}
@@ -17,10 +18,10 @@ import parse/expr.{
   Number, String, Variable,
 }
 import parse/stmt.{type Stmt}
-import parse/token
+import parse/token.{type Token}
 
-pub type Interpreter(a) {
-  Interpreter(env: Environment, io: IOInterface(a))
+pub type Interpreter(output) {
+  Interpreter(env: Environment, io: IOInterface(output))
 }
 
 pub fn new() -> Interpreter(Nil) {
@@ -30,10 +31,10 @@ pub fn new() -> Interpreter(Nil) {
 pub type EvalResult =
   Result(Object, RuntimeError)
 
-// a represent the interpreter output. In common cases such as write to stdout/stderr
+// output represent the interpreter output. In common cases such as write to stdout/stderr
 // it is nil, and in test environment it maybe fn() -> String.
-pub type InterpretResult(a) =
-  Result(Option(a), RuntimeError)
+pub type InterpretResult(output) =
+  Result(Option(output), RuntimeError)
 
 /// interpret interprets the provided statements and return the interpret result
 /// of the last statement. This function will exhaust the statements unless a
@@ -41,122 +42,176 @@ pub type InterpretResult(a) =
 ///
 /// NOTE: Behaviour may change!
 pub fn interpret(
-  interpreter: Interpreter(a),
+  interpreter: Interpreter(output),
   statements: List(Stmt),
-) -> InterpretResult(a) {
-  use _acc, statement <- list.fold_until(statements, Ok(None))
+) -> #(InterpretResult(output), Interpreter(output)) {
+  use #(_, interpreter), statement <- list.fold_until(statements, #(
+    Ok(None),
+    interpreter,
+  ))
 
   case statement {
     stmt.Print(exp) -> {
-      case evaluate(exp) {
+      let #(rst, interpreter) = evaluate(interpreter, exp)
+      case rst {
         Ok(obj) -> {
-          let output =
-            types.inspect_object(obj)
-            |> interpreter.io.write_stdout
-
-          list.Continue(Ok(Some(output)))
+          let output = interpreter.io.write_stdout(types.inspect_object(obj))
+          list.Continue(#(Ok(Some(output)), interpreter))
         }
-        Error(err) -> list.Stop(Error(err))
+        Error(err) -> list.Stop(#(Error(err), interpreter))
       }
     }
     stmt.Expression(exp) -> {
-      case evaluate(exp) {
-        Ok(_) -> list.Continue(Ok(None))
-        Error(err) -> list.Stop(Error(err))
+      let #(rst, interpreter) = evaluate(interpreter, exp)
+      case rst {
+        Ok(_) -> list.Continue(#(Ok(None), interpreter))
+        Error(err) -> list.Stop(#(Error(err), interpreter))
       }
     }
-    stmt.Declaration(_, _) -> todo
+    stmt.Declaration(name, initializer) -> {
+      let rst = case initializer {
+        Some(e) -> evaluate(interpreter, e) |> pair.first
+        None -> Ok(NilVal)
+      }
+      case rst {
+        Ok(value) -> {
+          let interpreter = define_variable(interpreter, name, value)
+          list.Continue(#(Ok(None), interpreter))
+        }
+        Error(err) -> list.Stop(#(Error(err), interpreter))
+      }
+    }
   }
 }
 
-pub fn evaluate(exp: Expr) -> EvalResult {
-  case exp {
-    expr.Variable(_) -> todo
+fn define_variable(
+  interpreter: Interpreter(a),
+  name: Token,
+  value,
+) -> Interpreter(a) {
+  let env =
+    environment.define(interpreter.env, token.to_lexeme(name.type_), value)
+  Interpreter(..interpreter, env:)
+}
 
-    expr.Number(n) -> Ok(Num(n))
-    expr.String(s) -> Ok(Str(s))
-    expr.Boolean(b) -> Ok(BoolVal(b))
-    expr.NilLiteral -> Ok(NilVal)
+pub fn evaluate(
+  interpreter: Interpreter(output),
+  exp: Expr,
+) -> #(EvalResult, Interpreter(output)) {
+  case exp {
+    expr.Variable(tok) -> #(environment.get(interpreter.env, tok), interpreter)
+
+    expr.Number(n) -> #(Ok(Num(n)), interpreter)
+    expr.String(s) -> #(Ok(Str(s)), interpreter)
+    expr.Boolean(b) -> #(Ok(BoolVal(b)), interpreter)
+    expr.NilLiteral -> #(Ok(NilVal), interpreter)
 
     expr.NegativeBool(right, _) -> {
-      let right_val = evaluate(right)
-      use right_val <- result.try(right_val)
-      Ok(BoolVal(!is_truthy(right_val)))
+      let #(right_val, interpreter) as rst = evaluate(interpreter, right)
+      use <- bool.guard(result.is_error(right_val), rst)
+      let assert Ok(right_val) = right_val
+
+      #(Ok(BoolVal(!is_truthy(right_val))), interpreter)
     }
+
     expr.NegativeNumber(right, tok) -> {
-      let right_val = evaluate(right)
-      use right_val <- result.try(right_val)
+      let #(right_val, interpreter) as rst = evaluate(interpreter, right)
+      use <- bool.guard(result.is_error(right_val), rst)
+      let assert Ok(right_val) = right_val
+
       case right_val {
-        Num(n) -> Ok(Num(float.negate(n)))
-        _ -> Error(RuntimeError(token: tok, error: OperandMustBeNumber))
+        Num(n) -> #(Ok(Num(float.negate(n))), interpreter)
+        _ -> #(
+          Error(RuntimeError(token: tok, error: OperandMustBeNumber)),
+          interpreter,
+        )
       }
     }
 
     expr.Binary(left, op, right) -> {
-      let left_val = evaluate(left)
-      let right_val = evaluate(right)
+      let #(left_val, interpreter) as l_rst = evaluate(interpreter, left)
+      let #(right_val, interpreter) as r_rst = evaluate(interpreter, right)
 
-      use left_val <- result.try(left_val)
-      use right_val <- result.try(right_val)
+      use <- bool.guard(result.is_error(left_val), l_rst)
+      use <- bool.guard(result.is_error(right_val), r_rst)
+      let assert #(Ok(left_val), Ok(right_val)) = #(left_val, right_val)
 
       case op.type_ {
         token.Minus ->
           case left_val, right_val {
-            Num(l), Num(r) -> Ok(Num(l -. r))
-            _, _ -> Error(RuntimeError(op, OperandMustBeNumber))
+            Num(l), Num(r) -> #(Ok(Num(l -. r)), interpreter)
+            _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
           }
         token.Slash ->
           case left_val, right_val {
-            Num(_), Num(0.0) -> Error(RuntimeError(op, DivideByZero))
-            Num(l), Num(r) -> Ok(Num(l /. r))
-            _, _ -> Error(RuntimeError(op, OperandMustBeNumber))
+            Num(_), Num(0.0) -> #(
+              Error(RuntimeError(op, DivideByZero)),
+              interpreter,
+            )
+            Num(l), Num(r) -> #(Ok(Num(l /. r)), interpreter)
+            _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
           }
         token.Star ->
           case left_val, right_val {
-            Num(l), Num(r) -> Ok(Num(l *. r))
-            _, _ -> Error(RuntimeError(op, OperandMustBeNumber))
+            Num(l), Num(r) -> #(Ok(Num(l *. r)), interpreter)
+            _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
           }
         token.Plus ->
           case left_val, right_val {
-            Num(l), Num(r) -> Ok(Num(l +. r))
+            Num(l), Num(r) -> #(Ok(Num(l +. r)), interpreter)
             // Lox support string concate using `+`.
             // Overload `+` operator when both operands are string.
-            Str(l), Str(r) -> Ok(Str(l <> r))
+            Str(l), Str(r) -> #(Ok(Str(l <> r)), interpreter)
 
-            Num(_), _ -> Error(RuntimeError(op, OperandMustBeNumber))
-            Str(_), _ -> Error(RuntimeError(op, OperandMustBeString))
-            _, _ -> Error(RuntimeError(op, OperandMustBeNumberOrString))
+            Num(_), _ -> #(
+              Error(RuntimeError(op, OperandMustBeNumber)),
+              interpreter,
+            )
+            Str(_), _ -> #(
+              Error(RuntimeError(op, OperandMustBeString)),
+              interpreter,
+            )
+            _, _ -> #(
+              Error(RuntimeError(op, OperandMustBeNumberOrString)),
+              interpreter,
+            )
           }
         token.Greater ->
           case left_val, right_val {
-            Num(l), Num(r) -> Ok(BoolVal(l >. r))
-            _, _ -> Error(RuntimeError(op, OperandMustBeNumber))
+            Num(l), Num(r) -> #(Ok(BoolVal(l >. r)), interpreter)
+            _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
           }
         token.GreaterEqual ->
           case left_val, right_val {
-            Num(l), Num(r) -> Ok(BoolVal(l >=. r))
-            _, _ -> Error(RuntimeError(op, OperandMustBeNumber))
+            Num(l), Num(r) -> #(Ok(BoolVal(l >=. r)), interpreter)
+            _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
           }
         token.Less ->
           case left_val, right_val {
-            Num(l), Num(r) -> Ok(BoolVal(l <. r))
-            _, _ -> Error(RuntimeError(op, OperandMustBeNumber))
+            Num(l), Num(r) -> #(Ok(BoolVal(l <. r)), interpreter)
+            _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
           }
         token.LessEqual ->
           case left_val, right_val {
-            Num(l), Num(r) -> Ok(BoolVal(l <=. r))
-            _, _ -> Error(RuntimeError(op, OperandMustBeNumber))
+            Num(l), Num(r) -> #(Ok(BoolVal(l <=. r)), interpreter)
+            _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
           }
-        token.NotEqual -> Ok(BoolVal(!is_equal(left_val, right_val)))
-        token.EqualEqual -> Ok(BoolVal(is_equal(left_val, right_val)))
+        token.NotEqual -> #(
+          Ok(BoolVal(!is_equal(left_val, right_val))),
+          interpreter,
+        )
+        token.EqualEqual -> #(
+          Ok(BoolVal(is_equal(left_val, right_val))),
+          interpreter,
+        )
 
         _ -> panic
       }
     }
     expr.Grouping(grouped) ->
       case grouped {
-        None -> Ok(NilVal)
-        Some(e) -> evaluate(e)
+        None -> #(Ok(NilVal), interpreter)
+        Some(e) -> evaluate(interpreter, e)
       }
   }
 }
