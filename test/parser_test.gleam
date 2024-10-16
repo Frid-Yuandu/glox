@@ -58,7 +58,7 @@ pub fn should_parse_primary_false_test() {
 }
 
 pub fn should_parse_primary_nil_test() {
-  let wanted = wrap_expression(expr.NilLiteral)
+  let wanted = wrap_expression(NilLiteral)
 
   [token.NilLiteral, token.Semicolon]
   |> parse_wanted
