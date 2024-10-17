@@ -106,17 +106,13 @@ pub fn evaluate(
     expr.NilLiteral -> #(Ok(NilVal), interpreter)
 
     expr.NegativeBool(right, _) -> {
-      let #(right_val, interpreter) as rst = evaluate(interpreter, right)
-      use <- bool.guard(result.is_error(right_val), rst)
-      let assert Ok(right_val) = right_val
+      use right_val, interpreter <- try_evaluate(interpreter, right)
 
       #(Ok(BoolVal(!is_truthy(right_val))), interpreter)
     }
 
     expr.NegativeNumber(right, tok) -> {
-      let #(right_val, interpreter) as rst = evaluate(interpreter, right)
-      use <- bool.guard(result.is_error(right_val), rst)
-      let assert Ok(right_val) = right_val
+      use right_val, interpreter <- try_evaluate(interpreter, right)
 
       case right_val {
         Num(n) -> #(Ok(Num(float.negate(n))), interpreter)
@@ -127,103 +123,122 @@ pub fn evaluate(
       }
     }
 
-    expr.Binary(left, op, right) -> {
-      let #(left_val, interpreter) as l_rst = evaluate(interpreter, left)
-      let #(right_val, interpreter) as r_rst = evaluate(interpreter, right)
+    expr.Binary(left, op, right) ->
+      interpreter |> evaluate_binary(left, op, right)
 
-      use <- bool.guard(result.is_error(left_val), l_rst)
-      use <- bool.guard(result.is_error(right_val), r_rst)
-      let assert #(Ok(left_val), Ok(right_val)) = #(left_val, right_val)
-
-      case op.type_ {
-        token.Minus ->
-          case left_val, right_val {
-            Num(l), Num(r) -> #(Ok(Num(l -. r)), interpreter)
-            _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
-          }
-        token.Slash ->
-          case left_val, right_val {
-            Num(_), Num(0.0) -> #(
-              Error(RuntimeError(op, DivideByZero)),
-              interpreter,
-            )
-            Num(l), Num(r) -> #(Ok(Num(l /. r)), interpreter)
-            _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
-          }
-        token.Star ->
-          case left_val, right_val {
-            Num(l), Num(r) -> #(Ok(Num(l *. r)), interpreter)
-            _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
-          }
-        token.Plus ->
-          case left_val, right_val {
-            Num(l), Num(r) -> #(Ok(Num(l +. r)), interpreter)
-            // Lox support string concate using `+`.
-            // Overload `+` operator when both operands are string.
-            Str(l), Str(r) -> #(Ok(Str(l <> r)), interpreter)
-
-            Num(_), _ -> #(
-              Error(RuntimeError(op, OperandMustBeNumber)),
-              interpreter,
-            )
-            Str(_), _ -> #(
-              Error(RuntimeError(op, OperandMustBeString)),
-              interpreter,
-            )
-            _, _ -> #(
-              Error(RuntimeError(op, OperandMustBeNumberOrString)),
-              interpreter,
-            )
-          }
-        token.Greater ->
-          case left_val, right_val {
-            Num(l), Num(r) -> #(Ok(BoolVal(l >. r)), interpreter)
-            _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
-          }
-        token.GreaterEqual ->
-          case left_val, right_val {
-            Num(l), Num(r) -> #(Ok(BoolVal(l >=. r)), interpreter)
-            _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
-          }
-        token.Less ->
-          case left_val, right_val {
-            Num(l), Num(r) -> #(Ok(BoolVal(l <. r)), interpreter)
-            _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
-          }
-        token.LessEqual ->
-          case left_val, right_val {
-            Num(l), Num(r) -> #(Ok(BoolVal(l <=. r)), interpreter)
-            _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
-          }
-        token.NotEqual -> #(
-          Ok(BoolVal(!is_equal(left_val, right_val))),
-          interpreter,
-        )
-        token.EqualEqual -> #(
-          Ok(BoolVal(is_equal(left_val, right_val))),
-          interpreter,
-        )
-
-        _ -> panic
-      }
-    }
     expr.Grouping(grouped) ->
       case grouped {
         None -> #(Ok(NilVal), interpreter)
         Some(e) -> evaluate(interpreter, e)
       }
-    expr.Assign(name, e) -> {
-      let #(rst, interpreter) = evaluate(interpreter, e)
-      case rst {
-        Ok(obj) ->
-          case environment.assign(interpreter.env, name, obj) {
-            Ok(env) -> #(rst, Interpreter(..interpreter, env:))
-            Error(err) -> #(Error(err), interpreter)
-          }
-        Error(_) -> #(rst, interpreter)
+
+    expr.Assign(name, expr) -> {
+      use obj, interpreter <- try_evaluate(interpreter, expr)
+
+      case environment.assign(interpreter.env, name, obj) {
+        Ok(env) -> #(Ok(obj), Interpreter(..interpreter, env:))
+        Error(err) -> #(Error(err), interpreter)
       }
     }
   }
+}
+
+fn evaluate_binary(
+  interpreter: Interpreter(output),
+  left: Expr,
+  op: Token,
+  right: Expr,
+) -> #(EvalResult, Interpreter(output)) {
+  use left_val, interpreter <- try_evaluate(interpreter, left)
+  use right_val, interpreter <- try_evaluate(interpreter, right)
+
+  case op.type_ {
+    token.Minus ->
+      case left_val, right_val {
+        Num(l), Num(r) -> #(Ok(Num(l -. r)), interpreter)
+        _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
+      }
+    token.Slash ->
+      case left_val, right_val {
+        Num(_), Num(0.0) -> #(
+          Error(RuntimeError(op, DivideByZero)),
+          interpreter,
+        )
+        Num(l), Num(r) -> #(Ok(Num(l /. r)), interpreter)
+        _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
+      }
+    token.Star ->
+      case left_val, right_val {
+        Num(l), Num(r) -> #(Ok(Num(l *. r)), interpreter)
+        _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
+      }
+    token.Plus ->
+      case left_val, right_val {
+        Num(l), Num(r) -> #(Ok(Num(l +. r)), interpreter)
+        // Lox support string concate using `+`.
+        // Overload `+` operator when both operands are string.
+        Str(l), Str(r) -> #(Ok(Str(l <> r)), interpreter)
+
+        Num(_), _ -> #(
+          Error(RuntimeError(op, OperandMustBeNumber)),
+          interpreter,
+        )
+        Str(_), _ -> #(
+          Error(RuntimeError(op, OperandMustBeString)),
+          interpreter,
+        )
+        _, _ -> #(
+          Error(RuntimeError(op, OperandMustBeNumberOrString)),
+          interpreter,
+        )
+      }
+    token.Greater ->
+      case left_val, right_val {
+        Num(l), Num(r) -> #(Ok(BoolVal(l >. r)), interpreter)
+        _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
+      }
+    token.GreaterEqual ->
+      case left_val, right_val {
+        Num(l), Num(r) -> #(Ok(BoolVal(l >=. r)), interpreter)
+        _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
+      }
+    token.Less ->
+      case left_val, right_val {
+        Num(l), Num(r) -> #(Ok(BoolVal(l <. r)), interpreter)
+        _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
+      }
+    token.LessEqual ->
+      case left_val, right_val {
+        Num(l), Num(r) -> #(Ok(BoolVal(l <=. r)), interpreter)
+        _, _ -> #(Error(RuntimeError(op, OperandMustBeNumber)), interpreter)
+      }
+    token.NotEqual -> #(
+      Ok(BoolVal(!is_equal(left_val, right_val))),
+      interpreter,
+    )
+    token.EqualEqual -> #(
+      Ok(BoolVal(is_equal(left_val, right_val))),
+      interpreter,
+    )
+
+    _ -> panic
+  }
+}
+
+fn try_evaluate(
+  interpreter: Interpreter(output),
+  expr: Expr,
+  callback: fn(Object, Interpreter(output)) ->
+    #(Result(a, RuntimeError), Interpreter(output)),
+) -> #(Result(a, RuntimeError), Interpreter(output)) {
+  let #(rst, interpreter) = evaluate(interpreter, expr)
+  use <- bool.lazy_guard(result.is_error(rst), fn() {
+    let assert Error(err) = rst
+    #(Error(err), interpreter)
+  })
+  let assert Ok(value) = rst
+
+  callback(value, interpreter)
 }
 
 /// is_truthy converts any object to boolean. As in Ruby's rule,
