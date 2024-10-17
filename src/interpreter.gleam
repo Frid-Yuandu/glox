@@ -89,8 +89,7 @@ fn define_variable(
   name: Token,
   value,
 ) -> Interpreter(a) {
-  let env =
-    environment.define(interpreter.env, token.to_lexeme(name.type_), value)
+  let env = environment.define(interpreter.env, name, value)
   Interpreter(..interpreter, env:)
 }
 
@@ -213,6 +212,17 @@ pub fn evaluate(
         None -> #(Ok(NilVal), interpreter)
         Some(e) -> evaluate(interpreter, e)
       }
+    expr.Assign(name, e) -> {
+      let #(rst, interpreter) = evaluate(interpreter, e)
+      case rst {
+        Ok(obj) ->
+          case environment.assign(interpreter.env, name, obj) {
+            Ok(env) -> #(rst, Interpreter(..interpreter, env:))
+            Error(err) -> #(Error(err), interpreter)
+          }
+        Error(_) -> #(rst, interpreter)
+      }
+    }
   }
 }
 

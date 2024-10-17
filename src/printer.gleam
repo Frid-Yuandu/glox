@@ -2,10 +2,10 @@ import gleam/bool
 import gleam/float
 import gleam/io
 import gleam/option.{None, Some}
-import parse/error
 
 import interpreter/runtime_error
 import interpreter/types
+import parse/error
 import parse/expr
 import parse/token
 
@@ -37,6 +37,13 @@ pub fn inspect_ast(expr: expr.Expr) -> String {
       }
       "(" <> "gourp" <> " " <> str <> ")"
     }
+    expr.Assign(name, e) ->
+      "("
+      <> "let"
+      <> " "
+      <> token.to_lexeme(name.type_)
+      <> inspect_ast(e)
+      <> ")"
   }
 }
 

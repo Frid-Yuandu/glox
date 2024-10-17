@@ -12,6 +12,8 @@ pub type Expr {
   NegativeNumber(value: Expr, token: Token)
   NegativeBool(value: Expr, token: Token)
 
+  Assign(name: Token, value: Expr)
+
   Binary(left: Expr, op: Token, right: Expr)
   Grouping(expr: Option(Expr))
   Variable(name: Token)

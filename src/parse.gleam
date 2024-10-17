@@ -73,12 +73,12 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 
 import parse/error.{
-  type LexicalError, type ParseError, ExpectExpression, ExpectRightParenthesis,
-  ExpectSemicolon, ExpectValue, ExpectVariableName, ExtraneousParenthesis,
-  ExtraneousSemicolon, LexError, LexicalError, ParseError, UnexpectedToken,
+  type LexicalError, type ParseError, ExpectExpression, ExpectLeftValue,
+  ExpectRightParenthesis, ExpectSemicolon, ExpectValue, ExpectVariableName,
+  ExtraneousParenthesis, ExtraneousSemicolon, InvalidAssignmentTarget, LexError,
+  LexicalError, ParseError, UnexpectedToken,
 }
-
-import parse/expr.{type Expr}
+import parse/expr.{type Expr, Assign, Variable}
 import parse/lexer.{type LexResult}
 import parse/stmt.{type Stmt, Declaration, Expression, Print}
 import parse/token.{type Token, type TokenType, Token}
@@ -156,7 +156,7 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
   let assert Some(var_kw) = parser.tok0
   let parser = advance(parser)
 
-  use <- bool.guard(!match(parser, token.Identifier("")), #(
+  use <- bool.guard(!is_token_type(parser.tok0, token.Identifier("")), #(
     Error(ParseError(ExpectVariableName, var_kw.line)),
     parser,
   ))
@@ -271,10 +271,37 @@ fn print_stmt_inner(parser: Parser) -> #(Result(Stmt), Parser) {
 }
 
 fn expression(parser: Parser) -> #(Result(Option(Expr)), Parser) {
-  let #(rst, parser) = equality(parser)
+  let #(rst, parser) = assignment(parser)
   let rst = case parser.lex_errors {
     [] -> rst
     [err, ..] -> Error(ParseError(LexError(err), err.line))
+  }
+
+  #(rst, parser)
+}
+
+fn assignment(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+  let #(rst, parser) as eq = equality(parser)
+
+  // Successive double equal has consumed by the equality(), so here should be
+  // the single equal.
+  use <- bool.guard(is_token_type(parser.tok0, token.Equal), eq)
+  let assert Some(equals) = parser.tok0
+  let #(value_rst, parser) = assignment(advance(parser))
+
+  let rst = {
+    use maybe_expr <- result.try(rst)
+    case maybe_expr {
+      Some(Variable(name)) ->
+        case value_rst {
+          Ok(Some(value)) -> Ok(Some(Assign(name, value)))
+          Ok(None) -> Error(ParseError(ExpectValue, equals.line))
+          Error(_) -> value_rst
+        }
+      Some(_) -> Error(ParseError(InvalidAssignmentTarget, equals.line))
+
+      _ -> Error(ParseError(ExpectLeftValue, equals.line))
+    }
   }
 
   #(rst, parser)
@@ -470,8 +497,11 @@ fn synchronize(parser: Parser) -> Parser {
   }
 }
 
-fn match(parser: Parser, token_type: TokenType) -> Bool {
-  case parser.tok0, token_type {
+fn is_token_type(
+  maybe_expected: Option(Token),
+  of token_type: TokenType,
+) -> Bool {
+  case maybe_expected, token_type {
     Some(Token(token.Number(_), _)), token.Number(_) -> True
     Some(Token(token.String(_), _)), token.String(_) -> True
     Some(Token(token.Identifier(_), _)), token.Identifier(_) -> True

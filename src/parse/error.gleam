@@ -37,6 +37,7 @@ pub type ParseErrorType {
   LexError(LexicalError)
 
   ExpectValue
+  ExpectLeftValue
   ExpectExpression
   ExpectSemicolon
   ExpectRightParenthesis
@@ -44,6 +45,8 @@ pub type ParseErrorType {
 
   ExtraneousParenthesis
   ExtraneousSemicolon
+
+  InvalidAssignmentTarget
 
   UnexpectedToken(TokenType)
 }
@@ -57,6 +60,7 @@ pub fn inspect_parse_error(err: ParseError) -> String {
       <> int.to_string(err.line)
 
     ExpectValue -> "Expect a value on line " <> int.to_string(err.line)
+    ExpectLeftValue -> "Expect a left value on line " <> int.to_string(err.line)
     ExpectExpression ->
       "Expect an expression on line " <> int.to_string(err.line)
     ExpectRightParenthesis ->
@@ -80,5 +84,8 @@ pub fn inspect_parse_error(err: ParseError) -> String {
       <> token.to_string(tok)
       <> "' on line "
       <> int.to_string(err.line)
+
+    InvalidAssignmentTarget ->
+      "Invalid assignment target on line" <> int.to_string(err.line)
   }
 }
