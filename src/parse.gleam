@@ -17,7 +17,8 @@
 ////    program -> declaration* ;
 ////    declaration -> var_decl | statement;
 ////    var_decl -> "var" IDENTIFIER ( "=" expression )? ";" ;
-////    statement -> expr_stmt | print_stmt ;
+////    statement -> expr_stmt | print_stmt | block;
+////    block -> "{" declaration* "}" ;
 ////    expr_stmt -> expression ";" ;
 ////    print_stmt -> "print" expression ";" ;
 ////    expression -> assignment ｜ equality ;
@@ -505,7 +506,7 @@ fn match(
   return return: b,
   with callback: fn(Parser, Token) -> b,
 ) -> b {
-  use <- bool.guard(is_token_type(parser.tok0, token_type), return)
+  use <- bool.guard(!is_token_type(parser.tok0, token_type), return)
   let assert Some(tok) = parser.tok0
   let parser = advance(parser)
 
