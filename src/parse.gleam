@@ -20,7 +20,7 @@
 ////    statement -> expr_stmt | print_stmt ;
 ////    expr_stmt -> expression ";" ;
 ////    print_stmt -> "print" expression ";" ;
-////    expression -> equality ;
+////    expression -> assignment ｜ equality ;
 ////    equality -> comparison ( ( "!=" | "==" ) comparison )* ;
 ////    comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 ////    term -> factor ( ( "+" | "-" ) factor )* ;
