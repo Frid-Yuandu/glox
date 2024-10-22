@@ -1,0 +1,20 @@
+---
+version: 1.2.3
+title: run nested block from file
+file: ./test/glox_test.gleam
+test_name: should_parse_and_interpret_nested_block__test
+---
+Complete(Interpreter(
+  Environment(
+    dict.from_list([
+      #("a", Str("global a")),
+      #("b", Str("global b")),
+      #("c", Str("global c")),
+    ]),
+    None,
+  ),
+  IoInterface(
+    //fn(a) { ... },
+    //fn(a) { ... },
+  ),
+))

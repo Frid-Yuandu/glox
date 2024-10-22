@@ -1,0 +1,8 @@
+---
+version: 1.2.3
+title: error in add wrong type to string
+---
+Error(RuntimeError(
+  Token(Plus, 1),
+  OperandMustBeString,
+))

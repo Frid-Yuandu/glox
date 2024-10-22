@@ -79,6 +79,7 @@ pub fn run(
     let #(interpret_rst, interpreter) =
       maybe_statements
       |> list.filter_map(fn(maybe) { option.to_result(maybe, Nil) })
+      |> list.reverse
       |> interpreter.interpret(interpreter, _)
 
     #(result.map_error(interpret_rst, FailedRun), interpreter)

@@ -1,10 +1,9 @@
 import birdie
-import gleam/dict
 import gleam/option.{None, Some}
 import pprint
 
 import interpreter.{type Interpreter, Interpreter}
-import interpreter/environment.{Environment}
+import interpreter/environment
 import interpreter/io_controller
 import parse/expr
 import parse/stmt
@@ -20,9 +19,11 @@ pub fn should_interpret_literal_test() {
     stmt.Expression(expr.NilLiteral),
   ]
 
-  new_test_interpreter()
-  |> interpreter.interpret(given_expr)
-  |> snapshot(title: "literal expression statements")
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_expr)
+
+  snapshot(rst, title: "literal expression statements")
 }
 
 // test unary expressions
@@ -43,9 +44,11 @@ pub fn should_interpret_apply_bang_on_false_as_true_test() {
     )),
   ]
 
-  new_test_interpreter()
-  |> interpreter.interpret(given_expr)
-  |> snapshot("unary expression statements")
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_expr)
+
+  snapshot(rst, "unary expression statements")
 }
 
 // test binary expressions
@@ -79,9 +82,11 @@ pub fn should_interpret_binary_calculations_test() {
     )),
   ]
 
-  new_test_interpreter()
-  |> interpreter.interpret(given_expr)
-  |> snapshot("binary calculations expression statements")
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_expr)
+
+  snapshot(rst, "binary calculations expression statements")
 }
 
 pub fn should_interpret_equal_equal_test() {
@@ -153,9 +158,11 @@ pub fn should_interpret_equal_equal_test() {
     )),
   ]
 
-  new_test_interpreter()
-  |> interpreter.interpret(given_expr)
-  |> snapshot("equalities expression statements")
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_expr)
+
+  snapshot(rst, "equalities expression statements")
 }
 
 // error cases in binary expressions
@@ -169,9 +176,11 @@ pub fn should_error_on_add_number_and_non_number_types_test() {
     )),
   ]
 
-  new_test_interpreter()
-  |> interpreter.interpret(given_expr)
-  |> snapshot("error in add number with non-number")
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_expr)
+
+  snapshot(rst, "error in add number with non-number")
 }
 
 pub fn should_error_in_addition_non_number_or_string_types_test() {
@@ -183,9 +192,11 @@ pub fn should_error_in_addition_non_number_or_string_types_test() {
     )),
   ]
 
-  new_test_interpreter()
-  |> interpreter.interpret(given_expr)
-  |> snapshot("error in add not number or string type")
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_expr)
+
+  snapshot(rst, "error in add not number or string type")
 }
 
 pub fn should_error_on_addition_string_and_non_string_test() {
@@ -197,9 +208,11 @@ pub fn should_error_on_addition_string_and_non_string_test() {
     )),
   ]
 
-  new_test_interpreter()
-  |> interpreter.interpret(given_expr)
-  |> snapshot("snapshot for binary calculations")
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_expr)
+
+  snapshot(rst, "error in add wrong type to string")
 }
 
 pub fn should_error_on_subtraction_non_numbers_test() {
@@ -211,9 +224,11 @@ pub fn should_error_on_subtraction_non_numbers_test() {
     )),
   ]
 
-  new_test_interpreter()
-  |> interpreter.interpret(given_expr)
-  |> snapshot("snapshot for binary calculations")
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_expr)
+
+  snapshot(rst, "error in subtract wrong type to string")
 }
 
 pub fn should_error_in_division_by_zero_test() {
@@ -225,9 +240,11 @@ pub fn should_error_in_division_by_zero_test() {
     )),
   ]
 
-  new_test_interpreter()
-  |> interpreter.interpret(given_expr)
-  |> snapshot("snapshot for binary calculations")
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_expr)
+
+  snapshot(rst, "error in divide by zero")
 }
 
 // test grouping expressions
@@ -245,22 +262,26 @@ pub fn should_interpret_grouping_expression_test() {
     ),
   ]
 
-  new_test_interpreter()
-  |> interpreter.interpret(given_expr)
-  |> snapshot("snapshot for binary calculations")
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_expr)
+
+  snapshot(rst, "non-empty gourping expression")
 }
 
 pub fn should_interpret_empty_grouping_test() {
   let given_expr = [stmt.Expression(expr.Grouping(None))]
 
-  new_test_interpreter()
-  |> interpreter.interpret(given_expr)
-  |> snapshot("snapshot for binary calculations")
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_expr)
+
+  snapshot(rst, "empty grouping expression")
 }
 
 // helper
 fn new_test_interpreter() -> Interpreter(fn() -> String) {
-  Interpreter(env: Environment(dict.new()), io: io_controller.io_capturer())
+  Interpreter(env: environment.new(), io: io_controller.io_capturer())
 }
 
 fn snapshot(any: a, title title: String) {

@@ -1,7 +1,5 @@
 ---
 version: 1.2.3
 title: equalities expression statements
-file: ./test/interpret_test.gleam
-test_name: should_interpret_equal_equal_test
 ---
 Ok(None)

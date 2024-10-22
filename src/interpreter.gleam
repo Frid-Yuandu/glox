@@ -1,6 +1,6 @@
 import gleam/bool
-import gleam/dict
 import gleam/float
+import gleam/io
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/pair
@@ -25,7 +25,7 @@ pub type Interpreter(output) {
 }
 
 pub fn new() -> Interpreter(Nil) {
-  Interpreter(env: Environment(dict.new()), io: io_controller.default_io())
+  Interpreter(env: environment.new(), io: io_controller.default_io())
 }
 
 pub type EvalResult =
@@ -79,6 +79,22 @@ pub fn interpret(
           list.Continue(#(Ok(None), interpreter))
         }
         Error(err) -> list.Stop(#(Error(err), interpreter))
+      }
+    }
+
+    // FIXME: environment vriable not found??
+    // Interpret the statements in block with new envrionment, then return and
+    // unwrap outer environment.
+    stmt.Block(statements) -> {
+      let block_env = environment.new_scope(interpreter.env)
+      let #(rst, interpreter) =
+        interpret(Interpreter(..interpreter, env: block_env), statements)
+
+      let assert Some(env) = interpreter.env.enclosing
+      let interpreter = Interpreter(..interpreter, env:)
+      case rst {
+        Error(_) -> list.Stop(#(rst, interpreter))
+        Ok(_) -> list.Continue(#(rst, interpreter))
       }
     }
   }
