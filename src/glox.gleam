@@ -30,7 +30,7 @@ fn run_file(path: String) -> Nil {
   case simplifile.read(path) {
     Ok(content) -> {
       let interpreter = interpreter.new()
-      let #(rst, _) = run(interpreter, content)
+      let rst = run(interpreter, content)
       case rst {
         Complete -> exit(0)
         FailedParse(_) -> exit(65)
