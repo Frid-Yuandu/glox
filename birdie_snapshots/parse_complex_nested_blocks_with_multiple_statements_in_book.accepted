@@ -1,0 +1,72 @@
+---
+version: 1.2.3
+title: parse complex nested blocks with multiple statements in book
+file: ./test/parser_test.gleam
+test_name: should_parse_complex_nested_blocks__test
+---
+[
+  Ok(Some(Declaration(
+    Token(Identifier("a"), 1),
+    Some(String("global a")),
+  ))),
+  Ok(Some(Declaration(
+    Token(Identifier("b"), 2),
+    Some(String("global b")),
+  ))),
+  Ok(Some(Declaration(
+    Token(Identifier("c"), 3),
+    Some(String("global c")),
+  ))),
+  Ok(Some(Block([
+    Declaration(
+      Token(Identifier("a"), 5),
+      Some(String("outer a")),
+    ),
+    Declaration(
+      Token(Identifier("b"), 6),
+      Some(String("outer b")),
+    ),
+    Block([
+      Declaration(
+        Token(Identifier("a"), 8),
+        Some(String("inner a")),
+      ),
+      Print(Variable(Token(
+        Identifier("a"),
+        9,
+      ))),
+      Print(Variable(Token(
+        Identifier("b"),
+        10,
+      ))),
+      Print(Variable(Token(
+        Identifier("c"),
+        11,
+      ))),
+    ]),
+    Print(Variable(Token(
+      Identifier("a"),
+      13,
+    ))),
+    Print(Variable(Token(
+      Identifier("b"),
+      14,
+    ))),
+    Print(Variable(Token(
+      Identifier("c"),
+      15,
+    ))),
+  ]))),
+  Ok(Some(Print(Variable(Token(
+    Identifier("a"),
+    17,
+  ))))),
+  Ok(Some(Print(Variable(Token(
+    Identifier("b"),
+    18,
+  ))))),
+  Ok(Some(Print(Variable(Token(
+    Identifier("c"),
+    19,
+  ))))),
+]

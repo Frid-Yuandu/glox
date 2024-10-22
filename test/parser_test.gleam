@@ -1,13 +1,16 @@
+import birdie
 import gleam/iterator
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleeunit/should
+import pprint
+import simplifile
 
 import parse
 import parse/error.{
-  type ParseError, ExpectExpression, ExpectRightParenthesis, ExpectSemicolon,
-  ExpectValue, ExpectVariableName, ExtraneousParenthesis, ExtraneousSemicolon,
-  ParseError, UnexpectedToken,
+  type ParseError, ExpectExpression, ExpectRightParenthesis, ExpectRightValue,
+  ExpectSemicolon, ExpectVariableName, ExtraneousParenthesis,
+  ExtraneousSemicolon, ParseError, UnexpectedToken,
 }
 import parse/expr.{
   Binary, Boolean, Grouping, NegativeBool, NegativeNumber, NilLiteral, Number,
@@ -433,7 +436,7 @@ pub fn should_not_parse_var_declaration_missing_semicolon_test() {
 }
 
 pub fn should_not_parse_var_declaration_missing_initializer_expression_test() {
-  let expected_error = Error(ParseError(ExpectValue, 1))
+  let expected_error = Error(ParseError(ExpectRightValue, 1))
 
   let parse_result =
     [token.Var, token.Identifier("x"), token.Equal, token.Semicolon]
@@ -499,7 +502,7 @@ pub fn should_not_parse_invalid_binary_operator_test() {
 }
 
 pub fn should_not_parse_missing_expression_test() {
-  let expected_error = wrap_error(ParseError(ExpectValue, 1))
+  let expected_error = wrap_error(ParseError(ExpectRightValue, 1))
 
   [token.String("foo"), token.Plus, token.Semicolon]
   // Missing expression after operator
@@ -536,6 +539,173 @@ pub fn should_not_parse_print_statement_missing_expression() {
 
   let parse_result =
     [token.Print, token.Semicolon]
+    |> parse_wanted
+
+  should.be_true(contains(parse_result, expected_error))
+}
+
+// parse block
+
+pub fn should_parse_empty_block_test() {
+  let wanted = [Ok(Some(stmt.Block([])))]
+
+  [token.LeftBrace, token.RightBrace]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_parse_block_with_single_statement_test() {
+  let wanted = [Ok(Some(stmt.Block([stmt.Expression(Number(1.0))])))]
+
+  [token.LeftBrace, token.Number(1.0), token.Semicolon, token.RightBrace]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_parse_block_with_multiple_statements_test() {
+  let wanted = [
+    Ok(
+      Some(
+        stmt.Block([
+          stmt.Expression(Number(1.0)),
+          stmt.Print(Number(2.0)),
+          stmt.Declaration(
+            wrap_token_type(token.Identifier("x")),
+            Some(Number(3.0)),
+          ),
+        ]),
+      ),
+    ),
+  ]
+
+  [
+    token.LeftBrace,
+    token.Number(1.0),
+    token.Semicolon,
+    token.Print,
+    token.Number(2.0),
+    token.Semicolon,
+    token.Var,
+    token.Identifier("x"),
+    token.Equal,
+    token.Number(3.0),
+    token.Semicolon,
+    token.RightBrace,
+  ]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_parse_nested_blocks_test() {
+  let wanted = [
+    Ok(
+      Some(
+        stmt.Block([
+          stmt.Expression(Number(1.0)),
+          stmt.Block([stmt.Expression(Number(2.0))]),
+        ]),
+      ),
+    ),
+  ]
+
+  [
+    token.LeftBrace,
+    token.Number(1.0),
+    token.Semicolon,
+    token.LeftBrace,
+    token.Number(2.0),
+    token.Semicolon,
+    token.RightBrace,
+    token.RightBrace,
+  ]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_parse_complex_nested_blocks__test() {
+  let assert Ok(content) =
+    simplifile.read("./test/test_source/nested_block.lox")
+
+  content
+  |> parse.from_source
+  |> parse.parse
+  |> pprint.format
+  |> birdie.snap(
+    title: "parse complex nested blocks with multiple statements in book",
+  )
+}
+
+pub fn should_not_parse_unclosed_block_test() {
+  let expected_error = Error(ParseError(error.ExpectRightBrace, 1))
+
+  let parse_result =
+    [token.LeftBrace, token.Number(1.0), token.Semicolon]
+    |> parse_wanted
+
+  should.be_true(contains(parse_result, expected_error))
+}
+
+// Additional variable declaration tests
+
+pub fn should_parse_multiple_var_declarations_test() {
+  let wanted = [
+    Ok(Some(stmt.Declaration(wrap_token_type(token.Identifier("x")), None))),
+    Ok(
+      Some(stmt.Declaration(
+        wrap_token_type(token.Identifier("y")),
+        Some(Number(2.0)),
+      )),
+    ),
+  ]
+
+  [
+    token.Var,
+    token.Identifier("x"),
+    token.Semicolon,
+    token.Var,
+    token.Identifier("y"),
+    token.Equal,
+    token.Number(2.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_parse_var_declaration_with_complex_initializer_test() {
+  let wanted = [
+    Ok(
+      Some(stmt.Declaration(
+        wrap_token_type(token.Identifier("z")),
+        Some(Binary(
+          Number(1.0),
+          wrap_token_type(token.Plus),
+          Binary(Number(2.0), wrap_token_type(token.Star), Number(3.0)),
+        )),
+      )),
+    ),
+  ]
+
+  [
+    token.Var,
+    token.Identifier("z"),
+    token.Equal,
+    token.Number(1.0),
+    token.Plus,
+    token.Number(2.0),
+    token.Star,
+    token.Number(3.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_not_parse_var_declaration_with_invalid_initializer_test() {
+  let expected_error = Error(ParseError(ExpectRightValue, 1))
+
+  let parse_result =
+    [token.Var, token.Identifier("x"), token.Equal, token.Semicolon]
     |> parse_wanted
 
   should.be_true(contains(parse_result, expected_error))

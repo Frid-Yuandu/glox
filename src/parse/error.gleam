@@ -36,11 +36,12 @@ pub type ParseError {
 pub type ParseErrorType {
   LexError(LexicalError)
 
-  ExpectValue
+  ExpectRightValue
   ExpectLeftValue
   ExpectExpression
   ExpectSemicolon
   ExpectRightParenthesis
+  ExpectRightBrace
   ExpectVariableName
 
   ExtraneousParenthesis
@@ -59,12 +60,15 @@ pub fn inspect_parse_error(err: ParseError) -> String {
       <> " on line "
       <> int.to_string(err.line)
 
-    ExpectValue -> "Expect a value on line " <> int.to_string(err.line)
+    ExpectRightValue -> "Expect a value on line " <> int.to_string(err.line)
     ExpectLeftValue -> "Expect a left value on line " <> int.to_string(err.line)
     ExpectExpression ->
       "Expect an expression on line " <> int.to_string(err.line)
     ExpectRightParenthesis ->
-      "Expect right parenthtsis \")\" after expression on line "
+      "Expect corresponding right parenthtsis \")\" after expression on line "
+      <> int.to_string(err.line)
+    ExpectRightBrace ->
+      "Expect corresponding right brace \"}\" on line "
       <> int.to_string(err.line)
     ExpectSemicolon ->
       "Expect semicolon \";\" after expression on line "

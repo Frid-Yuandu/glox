@@ -22,6 +22,7 @@
 ////    expr_stmt -> expression ";" ;
 ////    print_stmt -> "print" expression ";" ;
 ////    expression -> assignment ｜ equality ;
+////    assignment -> "var" target "=" initializer ";" ;
 ////    equality -> comparison ( ( "!=" | "==" ) comparison )* ;
 ////    comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 ////    term -> factor ( ( "+" | "-" ) factor )* ;
@@ -75,7 +76,7 @@ import gleam/result
 
 import parse/error.{
   type LexicalError, type ParseError, ExpectExpression, ExpectLeftValue,
-  ExpectRightParenthesis, ExpectSemicolon, ExpectValue, ExpectVariableName,
+  ExpectRightParenthesis, ExpectRightValue, ExpectSemicolon, ExpectVariableName,
   ExtraneousParenthesis, ExtraneousSemicolon, InvalidAssignmentTarget, LexError,
   LexicalError, ParseError, UnexpectedToken,
 }
@@ -83,9 +84,8 @@ import parse/expr.{
   type Expr, Assign, Binary, Boolean, Grouping, NegativeBool, NegativeNumber,
   NilLiteral, Number, String, Variable,
 }
-
 import parse/lexer.{type LexResult}
-import parse/stmt.{type Stmt, Declaration, Expression, Print}
+import parse/stmt.{type Stmt, Block, Declaration, Expression, Print}
 import parse/token.{type Token, type TokenType, Token}
 
 pub type Parser {
@@ -101,11 +101,15 @@ pub type Parser {
 pub type Result(t) =
   gleam.Result(t, ParseError)
 
-pub fn new(tokens: Iterator(LexResult)) -> Iterator(Result(Option(Stmt))) {
+pub fn new(tokens: Iterator(LexResult)) -> Parser {
   Parser(tokens:, lex_errors: [], tok0: None, tok1: None)
   |> advance
   |> advance
-  |> to_iter
+}
+
+pub fn from_source(source: String) -> Parser {
+  lexer.new(source)
+  |> new
 }
 
 fn to_iter(parser: Parser) -> Iterator(Result(Option(Stmt))) {
@@ -132,11 +136,13 @@ fn advance(parser: Parser) -> Parser {
   }
 }
 
-pub fn parse(iter: Iterator(Result(Option(Stmt)))) -> List(Result(Option(Stmt))) {
-  iterator.to_list(iter)
+pub fn parse(parser: Parser) -> List(Result(Option(Stmt))) {
+  parser
+  |> to_iter
+  |> iterator.to_list
 }
 
-fn declaration(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+pub fn declaration(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   let #(rst, parser) = case parser.tok0 {
     Some(Token(token.Var, _)) -> var_declaration(parser)
     _ -> statement(parser)
@@ -178,7 +184,7 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
               Ok(Declaration(var_name, initializer))
             _ -> Error(ParseError(ExpectSemicolon, var_kw.line))
           }
-        Ok(None) -> Error(ParseError(ExpectValue, eq_line))
+        Ok(None) -> Error(ParseError(ExpectRightValue, eq_line))
         Error(err) -> Error(err)
       }
       let new_parser = case parse_decl_rst {
@@ -202,7 +208,37 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
 fn statement(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   case parser.tok0 {
     Some(Token(token.Print, _)) -> print_stmt(parser)
+    Some(Token(token.LeftBrace, _)) -> block(parser)
     _ -> expr_stmt(parser)
+  }
+}
+
+fn block(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+  let assert Some(Token(token.LeftBrace, _) as l_brace) = parser.tok0
+  let parser = advance(parser)
+
+  let #(rst, parser) = block_inner(parser, [])
+  case rst, parser.tok0 {
+    Error(err), _ -> #(Error(err), parser)
+    Ok(statements), Some(Token(token.RightBrace, _)) -> #(
+      Ok(Some(Block(statements))),
+      advance(parser),
+    )
+    _, _ -> #(Error(ParseError(error.ExpectRightBrace, l_brace.line)), parser)
+  }
+}
+
+fn block_inner(parser: Parser, acc: List(Stmt)) -> #(Result(List(Stmt)), Parser) {
+  case parser.tok0 {
+    None | Some(Token(token.RightBrace, _)) -> #(Ok(acc), parser)
+    Some(_) -> {
+      let #(rst, parser) = declaration(parser)
+      case rst {
+        Error(err) -> #(Error(err), parser)
+        Ok(None) -> block_inner(parser, acc)
+        Ok(Some(s)) -> block_inner(parser, list.append(acc, [s]))
+      }
+    }
   }
 }
 
@@ -254,13 +290,13 @@ fn print_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
 
 fn print_stmt_inner(parser: Parser) -> #(Result(Stmt), Parser) {
   // remain the print token in order to get line for error report.
-  let assert Some(print_kw) = parser.tok0
   // Consume print keyword and parse expression
-  let #(rst, new_parser) = expression(advance(parser))
+  let assert Some(print_kw) = parser.tok0
+  let #(rst, parser) = expression(advance(parser))
 
   let stmt_rst = {
     use maybe_exp <- result.try(rst)
-    case new_parser.tok0 {
+    case parser.tok0 {
       Some(Token(token.Semicolon, _)) ->
         case maybe_exp {
           Some(expr) -> Ok(Print(expr))
@@ -270,10 +306,15 @@ fn print_stmt_inner(parser: Parser) -> #(Result(Stmt), Parser) {
     }
   }
 
-  #(stmt_rst, new_parser)
+  let parser = case parser.tok0 {
+    Some(Token(token.Semicolon, _)) -> advance(parser)
+    _ -> parser
+  }
+
+  #(stmt_rst, parser)
 }
 
-fn expression(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+pub fn expression(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   let #(rst, parser) = assignment(parser)
   let rst = case parser.lex_errors {
     [] -> rst
@@ -299,7 +340,7 @@ fn assignment(parser: Parser) -> #(Result(Option(Expr)), Parser) {
       Some(Variable(name)) ->
         case value_rst {
           Ok(Some(value)) -> Ok(Some(Assign(name, value)))
-          Ok(None) -> Error(ParseError(ExpectValue, equals.line))
+          Ok(None) -> Error(ParseError(ExpectRightValue, equals.line))
           Error(_) -> value_rst
         }
 
@@ -349,7 +390,7 @@ fn parse_successive_binary(
       #(Ok(Some(Binary(left, op, right))), right_parser)
       |> parse_successive_binary(match: operators, with: parse_func)
 
-    Ok(None) -> #(Error(ParseError(ExpectValue, op.line)), right_parser)
+    Ok(None) -> #(Error(ParseError(ExpectRightValue, op.line)), right_parser)
     Error(_) -> right_pair
   }
 }
@@ -393,7 +434,10 @@ fn unary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
           let new_exp = NegativeBool(token: op, value: right)
           #(Ok(Some(new_exp)), right_parser)
         }
-        Ok(None) -> #(Error(ParseError(ExpectValue, op.line)), right_parser)
+        Ok(None) -> #(
+          Error(ParseError(ExpectRightValue, op.line)),
+          right_parser,
+        )
         Error(_) -> pair
       }
     }
@@ -404,7 +448,10 @@ fn unary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
           let new_exp = NegativeNumber(token: op, value: right)
           #(Ok(Some(new_exp)), right_parser)
         }
-        Ok(None) -> #(Error(ParseError(ExpectValue, op.line)), right_parser)
+        Ok(None) -> #(
+          Error(ParseError(ExpectRightValue, op.line)),
+          right_parser,
+        )
         Error(_) -> pair
       }
     }
