@@ -82,9 +82,6 @@ pub fn interpret(
       }
     }
 
-    // FIXME: environment vriable not found??
-    // Interpret the statements in block with new envrionment, then return and
-    // unwrap outer environment.
     stmt.Block(statements) -> {
       let block_env = environment.new_scope(interpreter.env)
       let #(rst, interpreter) =

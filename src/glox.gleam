@@ -40,8 +40,6 @@ fn run_file(path: String) -> Nil {
   }
 }
 
-// TODO: add support to the REPL to let user type in block in multiple lines.
-// TODO: add support to the REPL to let user type in both expressions and statements.
 fn run_prompt() -> Nil {
   repl.start()
 
