@@ -1,20 +1,18 @@
 import gleam/bool
 import gleam/io
-import gleam/iterator
 import gleam/list
 import gleam/option
 import gleam/result
+import repl
 
 import interpreter.{type Interpreter}
 import interpreter/runtime_error.{type RuntimeError}
 import parse
 import parse/error.{type ParseError}
-import parse/lexer
 import printer
 
 import argv
 import simplifile
-import stdin.{stdin}
 
 pub fn main() {
   case argv.load().arguments {
@@ -42,16 +40,12 @@ fn run_file(path: String) -> Nil {
   }
 }
 
+// TODO: add support to the REPL to let user type in block in multiple lines.
+// TODO: add support to the REPL to let user type in both expressions and statements.
 fn run_prompt() -> Nil {
-  let interpreter = interpreter.new()
-  stdin()
-  |> iterator.fold(from: interpreter, with: fn(interpreter, line) {
-    let #(_, interpreter) = run(interpreter, line)
-    io.print("> ")
-    interpreter
-  })
+  repl.start()
 
-  io.println("glox REPL exit.")
+  io.println("lox REPL exit.")
 }
 
 pub type RunResult {
@@ -60,14 +54,13 @@ pub type RunResult {
   FailedRun(RuntimeError)
 }
 
-fn run(
+pub fn run(
   interpreter: Interpreter(Nil),
   source: String,
 ) -> #(RunResult, Interpreter(Nil)) {
   let #(maybe_statements, parse_errors) =
     source
-    |> lexer.new
-    |> parse.new
+    |> parse.from_source
     |> parse.parse
     |> result.partition
 
@@ -111,4 +104,5 @@ fn print_run_result(rst: RunResult) -> Nil {
 }
 
 @external(erlang, "exit_ffi", "do_exit")
+@external(javascript, "exit_ffi", "do_exit")
 fn exit(code: Int) -> Nil
