@@ -113,23 +113,9 @@ fn handle_parse_error(
 ) -> REPL(a) {
   let assert Error(parse_err) = should_error_input
   printer.print_parse_error(parse_err)
-  flush_pending(repl)
-}
-
-fn update_repl_with(repl: REPL(a), interpreter: Interpreter(a)) -> REPL(a) {
-  flush_pending(repl)
-  |> new_line
-  |> update_environment(interpreter)
-}
-
-fn new_line(repl: REPL(a)) -> REPL(a) {
-  REPL(..repl, lines: repl.lines + 1)
-}
-
-fn flush_pending(repl: REPL(a)) -> REPL(a) {
   REPL(..repl, pending: [])
 }
 
-fn update_environment(repl: REPL(a), interpreter: Interpreter(a)) -> REPL(a) {
-  REPL(..repl, interpreter:)
+fn update_repl_with(repl: REPL(a), interpreter: Interpreter(a)) -> REPL(a) {
+  REPL(lines: repl.lines + 1, interpreter:, pending: [])
 }
