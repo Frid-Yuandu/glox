@@ -63,7 +63,7 @@ pub fn run(interpreter: Interpreter(Nil), source: String) -> RunResult {
   use <- bool.guard(when: parse_errors != [], return: FailedParse(parse_errors))
   let #(interpret_rst, _) =
     maybe_statements
-    |> list.filter_map(fn(maybe) { option.to_result(maybe, Nil) })
+    |> option.values
     |> list.reverse
     |> interpreter.interpret(interpreter, _)
 
