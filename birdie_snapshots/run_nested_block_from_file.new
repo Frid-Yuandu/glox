@@ -1,0 +1,18 @@
+---
+version: 1.2.3
+title: run nested block from file
+---
+FailedParse([
+  ParseError(
+    UnexpectedToken(RightBrace),
+    16,
+  ),
+  ParseError(
+    UnexpectedToken(RightBrace),
+    12,
+  ),
+  ParseError(ExtraneousSemicolon, 8),
+  ParseError(ExtraneousSemicolon, 5),
+  ParseError(ExtraneousSemicolon, 3),
+  ParseError(ExtraneousSemicolon, 1),
+])

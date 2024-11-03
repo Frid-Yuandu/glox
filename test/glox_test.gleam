@@ -1,5 +1,4 @@
 import birdie
-import gleam/io
 import gleeunit
 import pprint
 

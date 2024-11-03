@@ -8,7 +8,7 @@ import simplifile
 
 import parse
 import parse/error.{
-  type ParseError, ExpectExpression, ExpectRightParenthesis, ExpectRightValue,
+  type ParseError, ExpectExpression, ExpectRightParentheses, ExpectRightValue,
   ExpectSemicolon, ExpectVariableName, ExtraneousParenthesis,
   ExtraneousSemicolon, ParseError, UnexpectedToken,
 }
@@ -471,7 +471,7 @@ pub fn should_not_parse_missing_semicolon_test() {
 }
 
 pub fn should_not_parse_unclosed_parenthesis_test() {
-  let expected_error = Error(ParseError(ExpectRightParenthesis, 1))
+  let expected_error = Error(ParseError(ExpectRightParentheses, 1))
   let unexpected_stmt = Ok(Some(stmt.Expression(Grouping(Some(Number(1.0))))))
   // Unclosed parenthesis
 

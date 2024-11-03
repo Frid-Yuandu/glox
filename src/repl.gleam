@@ -8,7 +8,7 @@ import gleam/string
 import interpreter.{type Interpreter}
 import parse
 import parse/error.{
-  type ParseError, ExpectRightBrace, ExpectRightParenthesis, ExpectSemicolon,
+  type ParseError, ExpectRightBrace, ExpectRightParentheses, ExpectSemicolon,
   ParseError,
 }
 import parse/expr.{type Expr}
@@ -79,7 +79,7 @@ fn validate(parse_result: Result(a, ParseError)) -> InputState(a) {
     Ok(any) -> Valid(any)
 
     Error(ParseError(ExpectSemicolon, _))
-    | Error(ParseError(ExpectRightParenthesis, _))
+    | Error(ParseError(ExpectRightParentheses, _))
     | Error(ParseError(ExpectRightBrace, _)) -> Incomplete
 
     _ -> Invalid
