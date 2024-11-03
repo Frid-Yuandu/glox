@@ -2,10 +2,10 @@ import gleam/bool
 import gleam/float
 import gleam/io
 import gleam/option.{None, Some}
-import parse/error
 
 import interpreter/runtime_error
 import interpreter/types
+import parse/error
 import parse/expr
 import parse/token
 
@@ -18,18 +18,13 @@ pub fn inspect_ast(expr: expr.Expr) -> String {
     expr.Boolean(b) -> bool.to_string(b)
     expr.NilLiteral -> "nil"
 
-    expr.NegativeBool(token: op, value: right) ->
-      "(" <> token.to_lexeme(op.type_) <> inspect_ast(right) <> ")"
-    expr.NegativeNumber(token: op, value: right) ->
-      "(" <> token.to_lexeme(op.type_) <> inspect_ast(right) <> ")"
-    expr.Binary(left, op, right) ->
-      "("
-      <> token.to_lexeme(op.type_)
-      <> " "
-      <> inspect_ast(left)
-      <> " "
-      <> inspect_ast(right)
-      <> ")"
+    expr.NegativeBool(token: op, value: right) -> inspect_unary(op, right)
+    expr.NegativeNumber(token: op, value: right) -> inspect_unary(op, right)
+
+    expr.LogicAnd(left, token, right) -> inspect_binary(token:, left:, right:)
+    expr.LogicOr(left, token, right) -> inspect_binary(token:, left:, right:)
+
+    expr.Binary(left, op, right) -> inspect_binary(token: op, left:, right:)
     expr.Grouping(e) -> {
       let str = case e {
         Some(e) -> inspect_ast(e)
@@ -37,7 +32,32 @@ pub fn inspect_ast(expr: expr.Expr) -> String {
       }
       "(" <> "gourp" <> " " <> str <> ")"
     }
+    expr.Assign(name, e) ->
+      "("
+      <> "let"
+      <> " "
+      <> token.to_lexeme(name.type_)
+      <> inspect_ast(e)
+      <> ")"
   }
+}
+
+fn inspect_unary(token: token.Token, value: expr.Expr) -> String {
+  "(" <> token.to_lexeme(token.type_) <> inspect_ast(value) <> ")"
+}
+
+fn inspect_binary(
+  token token: token.Token,
+  left left: expr.Expr,
+  right right: expr.Expr,
+) -> String {
+  "("
+  <> token.to_lexeme(token.type_)
+  <> " "
+  <> inspect_ast(left)
+  <> " "
+  <> inspect_ast(right)
+  <> ")"
 }
 
 pub fn print_parse_error(err: error.ParseError) -> Nil {

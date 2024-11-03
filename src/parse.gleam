@@ -13,14 +13,28 @@
 ////   including recovery mechanisms.
 ////
 //// ## Syntax formal of Lox
+//// This part shows the priority of the statements and expressions.
 ////
 ////    program -> declaration* ;
 ////    declaration -> var_decl | statement;
 ////    var_decl -> "var" IDENTIFIER ( "=" expression )? ";" ;
-////    statement -> expr_stmt | print_stmt ;
+////    statement -> expr_stmt
+////                | for_stmt
+////                | if_stmt
+////                | print_stmt
+////                | while_stmt
+////                | block;
 ////    expr_stmt -> expression ";" ;
+////    if_stmt -> "if" "(" expression ")" statement
+////               ( "else" statement )? ;
 ////    print_stmt -> "print" expression ";" ;
-////    expression -> equality ;
+////    block -> "{" declaration* "}" ;
+////
+////    expression -> assignment ｜ equality ;
+////    assignment -> IDENTIFIER "=" assignment ;
+////                | logic_or ;
+////    logic_or -> logic_and ( "or" logic_and )* ;
+////    logic_and -> equality ( "and" equality )* ;
 ////    equality -> comparison ( ( "!=" | "==" ) comparison )* ;
 ////    comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 ////    term -> factor ( ( "+" | "-" ) factor )* ;
@@ -61,9 +75,6 @@
 //// ...
 //// ```
 ////
-//// ## Future Enhancements
-//// - Refinement in error recovery strategies to better handle malformed code.
-//// - Extension to support upcoming Lox language features or custom language extensions.
 
 import gleam
 import gleam/bool
@@ -73,15 +84,20 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 
 import parse/error.{
-  type LexicalError, type ParseError, ExpectExpression, ExpectRightParenthesis,
-  ExpectSemicolon, ExpectValue, ExpectVariableName, ExtraneousParenthesis,
-  ExtraneousSemicolon, LexError, LexicalError, ParseError, UnexpectedToken,
+  type LexicalError, type ParseError, ExpectExpression, ExpectLeftParentheses,
+  ExpectLeftValue, ExpectRightParentheses, ExpectRightValue, ExpectSemicolon,
+  ExpectStatement, ExpectVariableName, ExtraneousParenthesis,
+  ExtraneousSemicolon, InvalidAssignmentTarget, LexError, LexicalError,
+  ParseError, UnexpectedToken,
 }
-
-import parse/expr.{type Expr}
+import parse/expr.{
+  type Expr, Assign, Binary, Boolean, Grouping, LogicAnd, LogicOr, NegativeBool,
+  NegativeNumber, NilLiteral, Number, String, Variable,
+}
 import parse/lexer.{type LexResult}
-import parse/stmt.{type Stmt, Declaration, Expression, Print}
+import parse/stmt.{type Stmt, Block, Declaration, Expression, Print}
 import parse/token.{type Token, type TokenType, Token}
+import prelude.{with_ok}
 
 pub type Parser {
   Parser(
@@ -96,11 +112,15 @@ pub type Parser {
 pub type Result(t) =
   gleam.Result(t, ParseError)
 
-pub fn new(tokens: Iterator(LexResult)) -> Iterator(Result(Option(Stmt))) {
+pub fn new(tokens: Iterator(LexResult)) -> Parser {
   Parser(tokens:, lex_errors: [], tok0: None, tok1: None)
   |> advance
   |> advance
-  |> to_iter
+}
+
+pub fn from_source(source: String) -> Parser {
+  lexer.new(source)
+  |> new
 }
 
 fn to_iter(parser: Parser) -> Iterator(Result(Option(Stmt))) {
@@ -127,11 +147,13 @@ fn advance(parser: Parser) -> Parser {
   }
 }
 
-pub fn parse(iter: Iterator(Result(Option(Stmt)))) -> List(Result(Option(Stmt))) {
-  iterator.to_list(iter)
+pub fn parse(parser: Parser) -> List(Result(Option(Stmt))) {
+  parser
+  |> to_iter
+  |> iterator.to_list
 }
 
-fn declaration(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+pub fn declaration(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   let #(rst, parser) = case parser.tok0 {
     Some(Token(token.Var, _)) -> var_declaration(parser)
     _ -> statement(parser)
@@ -156,34 +178,27 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
   let assert Some(var_kw) = parser.tok0
   let parser = advance(parser)
 
-  use <- bool.guard(!match(parser, token.Identifier("")), #(
+  use parser, var_name <- match_identifier(parser, #(
     Error(ParseError(ExpectVariableName, var_kw.line)),
     parser,
   ))
-  let assert Some(var_name) = parser.tok0
-  let parser = advance(parser)
 
-  // FIXME: should consume semicolon correctly
   case parser.tok0 {
-    // initialized variable declaration
+    // variable declaration with initializer
     Some(Token(token.Equal, eq_line)) -> {
       let #(rst, parser) = advance(parser) |> expression
-      let parse_decl_rst = case rst {
-        Ok(Some(_) as initializer) ->
-          case parser.tok0 {
-            Some(Token(token.Semicolon, _)) ->
-              Ok(Declaration(var_name, initializer))
-            _ -> Error(ParseError(ExpectSemicolon, var_kw.line))
-          }
-        Ok(None) -> Error(ParseError(ExpectValue, eq_line))
-        Error(err) -> Error(err)
+      use maybe_init, parser <- with_ok(rst, parser)
+      case maybe_init, parser.tok0 {
+        None, _ -> #(Error(ParseError(ExpectRightValue, eq_line)), parser)
+        init, Some(Token(token.Semicolon, _)) -> #(
+          Ok(Declaration(name: var_name, initializer: init)),
+          advance(parser),
+        )
+        _, _ -> #(
+          Error(ParseError(ExpectSemicolon, var_kw.line)),
+          advance(parser),
+        )
       }
-      let new_parser = case parse_decl_rst {
-        Ok(_) -> advance(parser)
-        _ -> parser
-      }
-
-      #(parse_decl_rst, new_parser)
     }
 
     // variable declaration without initialization
@@ -198,47 +213,127 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
 
 fn statement(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   case parser.tok0 {
+    Some(Token(token.If, _)) -> if_stmt(parser)
     Some(Token(token.Print, _)) -> print_stmt(parser)
+    Some(Token(token.LeftBrace, _)) -> block(parser)
     _ -> expr_stmt(parser)
+  }
+}
+
+/// if_stmt eagerly looks for the "else"" token, thus the else branch will be
+/// bound to the nearest if statement.
+fn if_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+  // unwrap if token
+  let assert Some(Token(token.If, if_line)) = parser.tok0
+  let parser = advance(parser)
+
+  // parse condition
+  use parser, left_p <- match(parser, type_of: token.LeftParen, return: #(
+    Error(ParseError(ExpectLeftParentheses, if_line)),
+    parser,
+  ))
+
+  let #(cond_rst, parser) = expression(parser)
+  use maybe_cond, parser <- with_ok(cond_rst, parser)
+  case maybe_cond {
+    None -> #(Error(ParseError(ExpectExpression, left_p.line)), parser)
+    Some(cond) -> {
+      use parser, right_p <- match(parser, type_of: token.RightParen, return: #(
+        Error(ParseError(ExpectRightParentheses, left_p.line)),
+        parser,
+      ))
+
+      // parse branches
+      let #(then_branch_rst, parser) = statement(parser)
+      use maybe_then, parser <- with_ok(then_branch_rst, parser)
+      case maybe_then {
+        None -> #(Error(ParseError(ExpectStatement, right_p.line)), parser)
+        Some(then_branch) -> {
+          use parser, else_kw <- match(parser, type_of: token.Else, return: #(
+            Ok(
+              Some(stmt.If(
+                condition: cond,
+                then_branch: then_branch,
+                else_branch: None,
+              )),
+            ),
+            parser,
+          ))
+          let #(else_branch_rst, parser) = statement(parser)
+          use maybe_else, parser <- with_ok(else_branch_rst, parser)
+          case maybe_else {
+            None -> #(Error(ParseError(ExpectStatement, else_kw.line)), parser)
+            Some(else_branch) -> {
+              #(
+                Ok(
+                  Some(stmt.If(
+                    condition: cond,
+                    then_branch: then_branch,
+                    else_branch: Some(else_branch),
+                  )),
+                ),
+                parser,
+              )
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+fn block(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+  let assert Some(Token(token.LeftBrace, _) as l_brace) = parser.tok0
+  let parser = advance(parser)
+
+  let #(rst, parser) = block_inner(parser, [])
+  case rst, parser.tok0 {
+    Error(err), _ -> #(Error(err), parser)
+    Ok(statements), Some(Token(token.RightBrace, _)) -> #(
+      Ok(Some(Block(statements))),
+      advance(parser),
+    )
+    _, _ -> #(Error(ParseError(error.ExpectRightBrace, l_brace.line)), parser)
+  }
+}
+
+fn block_inner(parser: Parser, acc: List(Stmt)) -> #(Result(List(Stmt)), Parser) {
+  case parser.tok0 {
+    None | Some(Token(token.RightBrace, _)) -> #(Ok(acc), parser)
+    Some(_) -> {
+      let #(rst, parser) = declaration(parser)
+      case rst {
+        Error(err) -> #(Error(err), parser)
+        Ok(None) -> block_inner(parser, acc)
+        Ok(Some(s)) -> block_inner(parser, list.append(acc, [s]))
+      }
+    }
   }
 }
 
 fn expr_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   let #(expr_rst, new_parser) = expression(parser)
 
-  let rst = {
-    // Try to consume semicolon
-    use maybe_exp <- result.try(expr_rst)
-    case new_parser.tok0 {
-      Some(Token(token.Semicolon, line)) ->
-        case maybe_exp {
-          Some(exp) -> Ok(Some(Expression(exp)))
-          None -> Error(ParseError(ExtraneousSemicolon, line))
-        }
+  use maybe_exp, parser <- with_ok(expr_rst, new_parser)
+  case new_parser.tok0, maybe_exp {
+    Some(Token(token.Semicolon, _)), Some(expr) -> #(
+      Ok(Some(Expression(expr))),
+      advance(new_parser),
+    )
+    Some(Token(token.Semicolon, line)), None -> #(
+      Error(ParseError(ExtraneousSemicolon, line)),
+      advance(new_parser),
+    )
 
-      Some(t) -> Error(ParseError(ExpectSemicolon, t.line))
+    Some(t), _ -> #(Error(ParseError(ExpectSemicolon, t.line)), new_parser)
 
-      // Valid none expression, and fallback the error line to the line of
-      // previous token to handle the terminal semicolon lack.
-      //
-      // A none expression is a single of EOF.
-      None ->
-        case maybe_exp {
-          Some(_) -> {
-            let assert Some(Token(_, line)) = parser.tok0
-            Error(ParseError(ExpectSemicolon, line))
-          }
-          None -> Ok(None)
-        }
+    // Valid none expression, representing a single of EOF.
+    None, Some(_) -> {
+      let assert Some(Token(_, line)) = parser.tok0
+      #(Error(ParseError(ExpectSemicolon, line)), new_parser)
     }
+    None, None -> #(Ok(None), new_parser)
   }
-
-  let new_parser = case new_parser.tok0 {
-    Some(Token(token.Semicolon, _)) -> advance(new_parser)
-    _ -> new_parser
-  }
-
-  #(rst, new_parser)
 }
 
 fn print_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
@@ -251,27 +346,27 @@ fn print_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
 
 fn print_stmt_inner(parser: Parser) -> #(Result(Stmt), Parser) {
   // remain the print token in order to get line for error report.
-  let assert Some(print_kw) = parser.tok0
   // Consume print keyword and parse expression
-  let #(rst, new_parser) = expression(advance(parser))
+  let assert Some(print_kw) = parser.tok0
+  let #(rst, parser) = expression(advance(parser))
 
-  let stmt_rst = {
-    use maybe_exp <- result.try(rst)
-    case new_parser.tok0 {
-      Some(Token(token.Semicolon, _)) ->
-        case maybe_exp {
-          Some(exp) -> Ok(Print(exp))
-          None -> Error(ParseError(ExpectExpression, print_kw.line))
-        }
-      _ -> Error(ParseError(ExpectSemicolon, print_kw.line))
-    }
+  use maybe_expr, parser <- with_ok(rst, parser)
+  case parser.tok0, maybe_expr {
+    Some(Token(token.Semicolon, _)), Some(expr) -> #(
+      Ok(Print(expr)),
+      advance(parser),
+    )
+    Some(Token(token.Semicolon, _)), None -> #(
+      Error(ParseError(ExpectExpression, print_kw.line)),
+      advance(parser),
+    )
+
+    _, _ -> #(Error(ParseError(ExpectSemicolon, print_kw.line)), parser)
   }
-
-  #(stmt_rst, new_parser)
 }
 
-fn expression(parser: Parser) -> #(Result(Option(Expr)), Parser) {
-  let #(rst, parser) = equality(parser)
+pub fn expression(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+  let #(rst, parser) = assignment(parser)
   let rst = case parser.lex_errors {
     [] -> rst
     [err, ..] -> Error(ParseError(LexError(err), err.line))
@@ -280,51 +375,120 @@ fn expression(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   #(rst, parser)
 }
 
+fn assignment(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+  let #(rst, parser) as left_val = logic_or(parser)
+
+  // Successive double equal has consumed by the equality(), so here should be
+  // the single equal.
+  use parser, equals <- match(parser, token.Equal, left_val)
+  // why advance?
+  let #(value_rst, parser) = assignment(advance(parser))
+
+  let rst = {
+    use maybe_expr <- result.try(rst)
+    // Detect whether assignment target a valid left-value expression
+    case maybe_expr {
+      Some(Variable(name)) ->
+        case value_rst {
+          Ok(Some(value)) -> Ok(Some(Assign(name, value)))
+          Ok(None) -> Error(ParseError(ExpectRightValue, equals.line))
+          Error(_) -> value_rst
+        }
+
+      Some(_) -> Error(ParseError(InvalidAssignmentTarget, equals.line))
+      _ -> Error(ParseError(ExpectLeftValue, equals.line))
+    }
+  }
+
+  #(rst, parser)
+}
+
+fn logic_or(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+  logic_and(parser)
+  |> parse_successive_binary(
+    match: [token.Or],
+    constructor: LogicOr,
+    with: logic_and,
+  )
+}
+
+fn logic_and(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+  equality(parser)
+  |> parse_successive_binary(
+    match: [token.And],
+    constructor: LogicAnd,
+    with: equality,
+  )
+}
+
 fn equality(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   comparison(parser)
-  |> parse_successive_binary([token.NotEqual, token.EqualEqual], comparison)
+  |> parse_successive_binary(
+    match: [token.NotEqual, token.EqualEqual],
+    constructor: Binary,
+    with: comparison,
+  )
 }
 
 fn comparison(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   term(parser)
   |> parse_successive_binary(
     match: [token.Greater, token.GreaterEqual, token.Less, token.LessEqual],
+    constructor: Binary,
     with: term,
   )
 }
 
 fn term(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   factor(parser)
-  |> parse_successive_binary(match: [token.Minus, token.Plus], with: factor)
+  |> parse_successive_binary(
+    match: [token.Minus, token.Plus],
+    constructor: Binary,
+    with: factor,
+  )
 }
 
 fn factor(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   unary(parser)
-  |> parse_successive_binary(match: [token.Slash, token.Star], with: unary)
+  |> parse_successive_binary(
+    match: [token.Slash, token.Star],
+    constructor: Binary,
+    with: unary,
+  )
 }
 
 fn parse_successive_binary(
   pair: #(Result(Option(Expr)), Parser),
   match operators: List(TokenType),
+  constructor constructor: fn(Expr, Token, Expr) -> Expr,
   with parse_func: fn(Parser) -> #(Result(Option(Expr)), Parser),
 ) -> #(Result(Option(Expr)), Parser) {
   let #(rst, parser) = pair
-  use <- bool.guard(!is_successive(parser, rst, operators), pair)
-
-  // Safe unwrap after guarantee
-  let assert Ok(Some(left)) = rst
-  let assert Some(op) = parser.tok0
+  use left, op <- unless_is_successive_bianry(parser, rst, operators, pair)
 
   let #(right_rst, right_parser) as right_pair = parse_func(advance(parser))
   case right_rst {
     Ok(Some(right)) ->
       // parse successive pattern exhaustively
-      #(Ok(Some(expr.Binary(left, op, right))), right_parser)
-      |> parse_successive_binary(match: operators, with: parse_func)
+      #(Ok(Some(constructor(left, op, right))), right_parser)
+      |> parse_successive_binary(
+        match: operators,
+        constructor:,
+        with: parse_func,
+      )
 
-    Ok(None) -> #(Error(ParseError(ExpectValue, op.line)), right_parser)
+    Ok(None) -> #(Error(ParseError(ExpectRightValue, op.line)), right_parser)
     Error(_) -> right_pair
   }
+}
+
+fn unless_is_successive_bianry(parser, rst, operators, return, callback) {
+  use <- bool.guard(!is_successive(parser, rst, operators), return)
+  // Safe unwrap after guarantee
+  let assert Ok(Some(left)) = rst
+  let assert Some(op) = parser.tok0
+
+  callback(left, op)
 }
 
 /// is_successive guarantee the left operand is valid parse_expression as well as
@@ -335,8 +499,10 @@ fn is_successive(
   operators: List(TokenType),
 ) -> Bool {
   // Guarantee left operand is a valid non-empty expression
-  let valid_left_operand =
-    rst |> option.from_result |> option.flatten |> option.is_some
+  let valid_left_operand = case rst {
+    Ok(Some(_)) -> True
+    _ -> False
+  }
 
   let match_operator = case parser.tok0 {
     Some(Token(t, _)) -> list.contains(operators, t)
@@ -352,10 +518,13 @@ fn unary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
       let #(rst, right_parser) as pair = unary(advance(parser))
       case rst {
         Ok(Some(right)) -> {
-          let new_exp = expr.NegativeBool(token: op, value: right)
+          let new_exp = NegativeBool(token: op, value: right)
           #(Ok(Some(new_exp)), right_parser)
         }
-        Ok(None) -> #(Error(ParseError(ExpectValue, op.line)), right_parser)
+        Ok(None) -> #(
+          Error(ParseError(ExpectRightValue, op.line)),
+          right_parser,
+        )
         Error(_) -> pair
       }
     }
@@ -363,15 +532,17 @@ fn unary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
       let #(rst, right_parser) as pair = unary(advance(parser))
       case rst {
         Ok(Some(right)) -> {
-          let new_exp = expr.NegativeNumber(token: op, value: right)
+          let new_exp = NegativeNumber(token: op, value: right)
           #(Ok(Some(new_exp)), right_parser)
         }
-        Ok(None) -> #(Error(ParseError(ExpectValue, op.line)), right_parser)
+        Ok(None) -> #(
+          Error(ParseError(ExpectRightValue, op.line)),
+          right_parser,
+        )
         Error(_) -> pair
       }
     }
 
-    // Non-unary operator
     _ -> primary(parser)
   }
 }
@@ -383,30 +554,15 @@ fn primary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
     Some(Token(token.Semicolon, _)) -> #(Ok(None), parser)
 
     // Literal
-    Some(Token(token.Number(n), _)) -> #(
-      Ok(Some(expr.Number(n))),
-      advance(parser),
-    )
-    Some(Token(token.String(s), _)) -> #(
-      Ok(Some(expr.String(s))),
-      advance(parser),
-    )
-    Some(Token(token.True, _)) -> #(
-      Ok(Some(expr.Boolean(True))),
-      advance(parser),
-    )
-    Some(Token(token.False, _)) -> #(
-      Ok(Some(expr.Boolean(False))),
-      advance(parser),
-    )
-    Some(Token(token.NilLiteral, _)) -> #(
-      Ok(Some(expr.NilLiteral)),
-      advance(parser),
-    )
+    Some(Token(token.Number(n), _)) -> #(Ok(Some(Number(n))), advance(parser))
+    Some(Token(token.String(s), _)) -> #(Ok(Some(String(s))), advance(parser))
+    Some(Token(token.True, _)) -> #(Ok(Some(Boolean(True))), advance(parser))
+    Some(Token(token.False, _)) -> #(Ok(Some(Boolean(False))), advance(parser))
+    Some(Token(token.NilLiteral, _)) -> #(Ok(Some(NilLiteral)), advance(parser))
 
     // Variable
     Some(Token(token.Identifier(_), _) as tok) -> #(
-      Ok(Some(expr.Variable(tok))),
+      Ok(Some(Variable(tok))),
       advance(parser),
     )
 
@@ -415,7 +571,7 @@ fn primary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
       case parser.tok1 {
         // Empty grouping
         Some(Token(token.RightParen, _)) -> #(
-          Ok(Some(expr.Grouping(None))),
+          Ok(Some(Grouping(None))),
           advance(advance(parser)),
         )
 
@@ -424,11 +580,11 @@ fn primary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
           let #(inner_expr, sub_parser) = expression(advance(parser))
           case inner_expr, sub_parser.tok0 {
             Ok(e), Some(Token(token.RightParen, _)) -> #(
-              Ok(Some(expr.Grouping(e))),
+              Ok(Some(Grouping(e))),
               advance(sub_parser),
             )
             Ok(_), _ -> #(
-              Error(ParseError(ExpectRightParenthesis, line)),
+              Error(ParseError(ExpectRightParentheses, line)),
               sub_parser,
             )
             Error(_), _ -> #(inner_expr, sub_parser)
@@ -470,8 +626,32 @@ fn synchronize(parser: Parser) -> Parser {
   }
 }
 
-fn match(parser: Parser, token_type: TokenType) -> Bool {
-  case parser.tok0, token_type {
+fn match_identifier(
+  parser: Parser,
+  return return: b,
+  with callback: fn(Parser, Token) -> b,
+) -> b {
+  match(parser, type_of: token.Identifier(""), return:, with: callback)
+}
+
+fn match(
+  parser: Parser,
+  type_of token_type: TokenType,
+  return return: b,
+  with callback: fn(Parser, Token) -> b,
+) -> b {
+  use <- bool.guard(!is_token_type(parser.tok0, token_type), return)
+  let assert Some(tok) = parser.tok0
+  let parser = advance(parser)
+
+  callback(parser, tok)
+}
+
+fn is_token_type(
+  maybe_expected: Option(Token),
+  of token_type: TokenType,
+) -> Bool {
+  case maybe_expected, token_type {
     Some(Token(token.Number(_), _)), token.Number(_) -> True
     Some(Token(token.String(_), _)), token.String(_) -> True
     Some(Token(token.Identifier(_), _)), token.Identifier(_) -> True

@@ -1,0 +1,7 @@
+---
+version: 1.2.3
+title: run nested block from file
+file: ./test/glox_test.gleam
+test_name: should_parse_and_interpret_nested_block__test
+---
+Complete

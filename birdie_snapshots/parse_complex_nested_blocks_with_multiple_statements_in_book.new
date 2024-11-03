@@ -1,0 +1,62 @@
+---
+version: 1.2.3
+title: parse complex nested blocks with multiple statements in book
+---
+[
+  Ok(Some(Declaration(
+    Token(Identifier("a"), 1),
+    Some(String("global a")),
+  ))),
+  Error(ParseError(
+    ExtraneousSemicolon,
+    1,
+  )),
+  Ok(Some(Declaration(
+    Token(Identifier("c"), 3),
+    Some(String("global c")),
+  ))),
+  Error(ParseError(
+    ExtraneousSemicolon,
+    3,
+  )),
+  Ok(Some(Declaration(
+    Token(Identifier("a"), 5),
+    Some(String("outer a")),
+  ))),
+  Error(ParseError(
+    ExtraneousSemicolon,
+    5,
+  )),
+  Error(ParseError(
+    ExtraneousSemicolon,
+    8,
+  )),
+  Ok(Some(Print(Variable(Token(
+    Identifier("c"),
+    11,
+  ))))),
+  Error(ParseError(
+    UnexpectedToken(RightBrace),
+    12,
+  )),
+  Ok(Some(Print(Variable(Token(
+    Identifier("b"),
+    14,
+  ))))),
+  Ok(Some(Print(Variable(Token(
+    Identifier("c"),
+    15,
+  ))))),
+  Error(ParseError(
+    UnexpectedToken(RightBrace),
+    16,
+  )),
+  Ok(Some(Print(Variable(Token(
+    Identifier("b"),
+    18,
+  ))))),
+  Ok(Some(Print(Variable(Token(
+    Identifier("c"),
+    19,
+  ))))),
+]

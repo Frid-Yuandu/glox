@@ -1,20 +1,19 @@
 import gleam/bool
+import gleam/function
 import gleam/io
-import gleam/iterator
 import gleam/list
 import gleam/option
 import gleam/result
+import repl
 
 import interpreter.{type Interpreter}
 import interpreter/runtime_error.{type RuntimeError}
 import parse
 import parse/error.{type ParseError}
-import parse/lexer
 import printer
 
 import argv
 import simplifile
-import stdin.{stdin}
 
 pub fn main() {
   case argv.load().arguments {
@@ -31,7 +30,7 @@ fn run_file(path: String) -> Nil {
   case simplifile.read(path) {
     Ok(content) -> {
       let interpreter = interpreter.new()
-      let #(rst, _) = run(interpreter, content)
+      let rst = run(interpreter, content)
       case rst {
         Complete -> exit(0)
         FailedParse(_) -> exit(65)
@@ -43,15 +42,9 @@ fn run_file(path: String) -> Nil {
 }
 
 fn run_prompt() -> Nil {
-  let interpreter = interpreter.new()
-  stdin()
-  |> iterator.fold(from: interpreter, with: fn(interpreter, line) {
-    let #(_, interpreter) = run(interpreter, line)
-    io.print("> ")
-    interpreter
-  })
+  repl.start()
 
-  io.println("glox REPL exit.")
+  io.println("lox REPL exit.")
 }
 
 pub type RunResult {
@@ -60,46 +53,25 @@ pub type RunResult {
   FailedRun(RuntimeError)
 }
 
-fn run(
-  interpreter: Interpreter(Nil),
-  source: String,
-) -> #(RunResult, Interpreter(Nil)) {
+pub fn run(interpreter: Interpreter(Nil), source: String) -> RunResult {
   let #(maybe_statements, parse_errors) =
     source
-    |> lexer.new
-    |> parse.new
+    |> parse.from_source
     |> parse.parse
     |> result.partition
 
-  let parse_results = case parse_errors {
-    [] -> Ok(maybe_statements)
-    [_, ..] -> Error(FailedParse(parse_errors))
-  }
+  use <- bool.guard(when: parse_errors != [], return: FailedParse(parse_errors))
+  let #(interpret_rst, _) =
+    maybe_statements
+    |> option.values
+    |> list.reverse
+    |> interpreter.interpret(interpreter, _)
 
-  let #(interpret_rst, interpreter) = {
-    use <- bool.lazy_guard(result.is_error(parse_results), fn() {
-      let assert Error(err) = parse_results
-      #(Error(err), interpreter)
-    })
-    let assert Ok(maybe_statements) = parse_results
-
-    let #(interpret_rst, interpreter) =
-      maybe_statements
-      |> list.filter_map(fn(maybe) { option.to_result(maybe, Nil) })
-      |> interpreter.interpret(interpreter, _)
-
-    #(result.map_error(interpret_rst, FailedRun), interpreter)
-  }
-
-  let run_rst = case interpret_rst {
+  case interpret_rst {
     Ok(_) -> Complete
-    Error(FailedRun(_) as err) -> err
-    Error(FailedParse(_) as err) -> err
-    _ -> panic
+    Error(err) -> FailedRun(err)
   }
-  print_run_result(run_rst)
-
-  #(run_rst, interpreter)
+  |> function.tap(print_run_result)
 }
 
 fn print_run_result(rst: RunResult) -> Nil {
@@ -111,4 +83,5 @@ fn print_run_result(rst: RunResult) -> Nil {
 }
 
 @external(erlang, "exit_ffi", "do_exit")
+@external(javascript, "exit_ffi", "do_exit")
 fn exit(code: Int) -> Nil

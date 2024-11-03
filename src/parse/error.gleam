@@ -36,14 +36,20 @@ pub type ParseError {
 pub type ParseErrorType {
   LexError(LexicalError)
 
-  ExpectValue
+  ExpectRightValue
+  ExpectLeftValue
   ExpectExpression
+  ExpectStatement
   ExpectSemicolon
-  ExpectRightParenthesis
+  ExpectLeftParentheses
+  ExpectRightParentheses
+  ExpectRightBrace
   ExpectVariableName
 
   ExtraneousParenthesis
   ExtraneousSemicolon
+
+  InvalidAssignmentTarget
 
   UnexpectedToken(TokenType)
 }
@@ -56,11 +62,18 @@ pub fn inspect_parse_error(err: ParseError) -> String {
       <> " on line "
       <> int.to_string(err.line)
 
-    ExpectValue -> "Expect a value on line " <> int.to_string(err.line)
+    ExpectRightValue -> "Expect a value on line " <> int.to_string(err.line)
+    ExpectLeftValue -> "Expect a left value on line " <> int.to_string(err.line)
     ExpectExpression ->
       "Expect an expression on line " <> int.to_string(err.line)
-    ExpectRightParenthesis ->
-      "Expect right parenthtsis \")\" after expression on line "
+    ExpectStatement -> "Expect a statement on line " <> int.to_string(err.line)
+    ExpectLeftParentheses ->
+      "Expect an left parentheses on line " <> int.to_string(err.line)
+    ExpectRightParentheses ->
+      "Expect corresponding right parentheses \")\" after expression on line "
+      <> int.to_string(err.line)
+    ExpectRightBrace ->
+      "Expect corresponding right brace \"}\" on line "
       <> int.to_string(err.line)
     ExpectSemicolon ->
       "Expect semicolon \";\" after expression on line "
@@ -80,5 +93,8 @@ pub fn inspect_parse_error(err: ParseError) -> String {
       <> token.to_string(tok)
       <> "' on line "
       <> int.to_string(err.line)
+
+    InvalidAssignmentTarget ->
+      "Invalid assignment target on line" <> int.to_string(err.line)
   }
 }
