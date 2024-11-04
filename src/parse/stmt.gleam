@@ -8,4 +8,5 @@ pub type Stmt {
   Expression(expr: Expr)
   Print(expr: Expr)
   Declaration(name: Token, initializer: Option(Expr))
+  While(condition: Expr, body: Option(Stmt))
 }

@@ -1,9 +1,7 @@
-import gleam/bool
 import gleam/float
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/pair
-import gleam/result
 
 import interpreter/environment.{type Environment, Environment}
 import interpreter/io_controller.{type IOInterface}
@@ -109,6 +107,7 @@ pub fn interpret(
         Ok(_) -> list.Continue(#(rst, interpreter))
       }
     }
+    stmt.While(_, _) -> todo
   }
 }
 

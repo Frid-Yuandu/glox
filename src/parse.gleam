@@ -28,6 +28,7 @@
 ////    if_stmt -> "if" "(" expression ")" statement
 ////               ( "else" statement )? ;
 ////    print_stmt -> "print" expression ";" ;
+////    while_stmt -> "while" "(" expression ")" statement ;
 ////    block -> "{" declaration* "}" ;
 ////
 ////    expression -> assignment ｜ equality ;
@@ -179,7 +180,7 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
   let assert Some(Token(token.Var, var_line)) = parser.tok0
   let parser = advance(parser)
 
-  use parser, var_name <- match_identifier(parser, #(
+  use var_name, parser <- match_identifier(parser, #(
     Error(ParseError(ExpectVariableName, var_line)),
     parser,
   ))
@@ -187,17 +188,22 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
   case parser.tok0 {
     // variable declaration with initializer
     Some(Token(token.Equal, eq_line)) -> {
-      let #(rst, parser) = advance(parser) |> expression
+      let #(rst, parser) = expression(advance(parser))
 
       use maybe_init, parser <- with_ok(rst, parser)
-      case maybe_init, parser.tok0 {
-        None, _ -> #(Error(ParseError(ExpectRightValue, eq_line)), parser)
-        init, Some(Token(token.Semicolon, _)) -> #(
-          Ok(Declaration(name: var_name, initializer: init)),
-          advance(parser),
-        )
-        _, _ -> #(Error(ParseError(ExpectSemicolon, var_line)), advance(parser))
-      }
+
+      use <- bool.guard(when: option.is_none(maybe_init), return: #(
+        Error(ParseError(ExpectRightValue, eq_line)),
+        advance(parser),
+      ))
+
+      // Don't need to unwrap maybe_init here, because the constructor receive a option.
+      use _, parser <- match(parser, type_of: token.Semicolon, otherwise: #(
+        Error(ParseError(ExpectSemicolon, var_line)),
+        parser,
+      ))
+
+      #(Ok(Declaration(name: var_name, initializer: maybe_init)), parser)
     }
 
     // variable declaration without initialization
@@ -213,6 +219,7 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
 fn statement(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   case parser.tok0 {
     Some(Token(token.If, _)) -> if_stmt(parser)
+    Some(Token(token.While, _)) -> while_stmt(parser)
     Some(Token(token.Print, _)) -> print_stmt(parser)
     Some(Token(token.LeftBrace, _)) -> block(parser)
     _ -> expr_stmt(parser)
@@ -227,20 +234,25 @@ fn if_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   let parser = advance(parser)
 
   // parse condition
-  use parser, left_p <- match(parser, type_of: token.LeftParen, return: #(
+  use left_p, parser <- match(parser, type_of: token.LeftParen, otherwise: #(
     Error(ParseError(ExpectLeftParentheses, if_line)),
     parser,
   ))
 
+  // decouple condition and branch?
   let #(cond_rst, parser) = expression(parser)
   use maybe_cond, parser <- with_ok(cond_rst, parser)
   case maybe_cond {
     None -> #(Error(ParseError(ExpectExpression, left_p.line)), parser)
     Some(cond) -> {
-      use parser, right_p <- match(parser, type_of: token.RightParen, return: #(
-        Error(ParseError(ExpectRightParentheses, left_p.line)),
+      use right_p, parser <- match(
         parser,
-      ))
+        type_of: token.RightParen,
+        otherwise: #(
+          Error(ParseError(ExpectRightParentheses, left_p.line)),
+          parser,
+        ),
+      )
 
       // parse branches
       let #(then_branch_rst, parser) = statement(parser)
@@ -248,16 +260,20 @@ fn if_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
       case maybe_then {
         None -> #(Error(ParseError(ExpectStatement, right_p.line)), parser)
         Some(then_branch) -> {
-          use parser, else_kw <- match(parser, type_of: token.Else, return: #(
-            Ok(
-              Some(stmt.If(
-                condition: cond,
-                then_branch: then_branch,
-                else_branch: None,
-              )),
-            ),
+          use else_kw, parser <- match(
             parser,
-          ))
+            type_of: token.Else,
+            otherwise: #(
+              Ok(
+                Some(stmt.If(
+                  condition: cond,
+                  then_branch: then_branch,
+                  else_branch: None,
+                )),
+              ),
+              parser,
+            ),
+          )
           let #(else_branch_rst, parser) = statement(parser)
           use maybe_else, parser <- with_ok(else_branch_rst, parser)
           case maybe_else {
@@ -281,30 +297,60 @@ fn if_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   }
 }
 
-fn block(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
-  let assert Some(Token(token.LeftBrace, _) as l_brace) = parser.tok0
+fn while_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+  // unwrap while token
+  let assert Some(Token(token.While, while_line)) = parser.tok0
   let parser = advance(parser)
 
-  let #(rst, parser) = block_inner(parser, [])
-  case rst, parser.tok0 {
-    Error(err), _ -> #(Error(err), parser)
-    Ok(statements), Some(Token(token.RightBrace, _)) -> #(
-      Ok(Some(Block(statements))),
-      advance(parser),
-    )
-    _, _ -> #(Error(ParseError(error.ExpectRightBrace, l_brace.line)), parser)
-  }
+  // parse condition
+  use left_p, parser <- match(parser, type_of: token.LeftParen, otherwise: #(
+    Error(ParseError(ExpectLeftParentheses, while_line)),
+    parser,
+  ))
+
+  let #(cond_rst, parser) = expression(parser)
+  use maybe_cond, parser <- with_ok(cond_rst, parser)
+  use <- bool.guard(when: option.is_none(maybe_cond), return: #(
+    Error(ParseError(ExpectExpression, left_p.line)),
+    parser,
+  ))
+  let assert Some(cond) = maybe_cond
+
+  use _, parser <- match(parser, type_of: token.RightParen, otherwise: #(
+    Error(ParseError(ExpectRightParentheses, left_p.line)),
+    parser,
+  ))
+
+  let #(body_rst, parser) = statement(parser)
+  use body, parser <- with_ok(in: body_rst, processer: parser)
+
+  #(Ok(Some(stmt.While(condition: cond, body:))), parser)
 }
 
-fn block_inner(parser: Parser, acc: List(Stmt)) -> #(Result(List(Stmt)), Parser) {
+fn block(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+  let assert Some(Token(token.LeftBrace, l_brace_line)) = parser.tok0
+  let parser = advance(parser)
+
+  let #(rst, parser) = block_inner(parser, l_brace_line, [])
+  use statements, parser <- with_ok(rst, parser)
+
+  #(Ok(Some(Block(statements))), advance(parser))
+}
+
+fn block_inner(
+  parser: Parser,
+  begin_line: Int,
+  acc: List(Stmt),
+) -> #(Result(List(Stmt)), Parser) {
   case parser.tok0 {
-    None | Some(Token(token.RightBrace, _)) -> #(Ok(acc), parser)
+    None -> #(Error(ParseError(error.ExpectRightBrace, begin_line)), parser)
+    Some(Token(token.RightBrace, _)) -> #(Ok(acc), parser)
     Some(_) -> {
       let #(rst, parser) = declaration(parser)
       case rst {
         Error(err) -> #(Error(err), parser)
-        Ok(None) -> block_inner(parser, acc)
-        Ok(Some(s)) -> block_inner(parser, list.append(acc, [s]))
+        Ok(None) -> block_inner(parser, begin_line, acc)
+        Ok(Some(s)) -> block_inner(parser, begin_line, list.append(acc, [s]))
       }
     }
   }
@@ -384,7 +430,7 @@ fn assignment(parser: Parser) -> #(Result(Option(Expr)), Parser) {
 
   // Successive double equal has consumed by the equality(), so here should be
   // the single equal.
-  use parser, equals <- match(parser, token.Equal, left_val)
+  use equals, parser <- match(parser, token.Equal, left_val)
   // why advance?
   let #(value_rst, parser) = assignment(advance(parser))
 
@@ -632,23 +678,30 @@ fn synchronize(parser: Parser) -> Parser {
 
 fn match_identifier(
   parser: Parser,
-  return return: b,
-  with callback: fn(Parser, Token) -> b,
+  otherwise return: b,
+  with callback: fn(Token, Parser) -> b,
 ) -> b {
-  match(parser, type_of: token.Identifier(""), return:, with: callback)
+  match(
+    parser,
+    type_of: token.Identifier(""),
+    otherwise: return,
+    with: callback,
+  )
 }
 
+// Using this function to consume specific token and advance as possible.
+// NOTE: Carefully, avoid redundant token consume.
 fn match(
   parser: Parser,
   type_of token_type: TokenType,
-  return return: b,
-  with callback: fn(Parser, Token) -> b,
+  otherwise return: b,
+  with fun: fn(Token, Parser) -> b,
 ) -> b {
   use <- bool.guard(!is_token_type(parser.tok0, token_type), return)
   let assert Some(tok) = parser.tok0
   let parser = advance(parser)
 
-  callback(parser, tok)
+  fun(tok, parser)
 }
 
 fn is_token_type(

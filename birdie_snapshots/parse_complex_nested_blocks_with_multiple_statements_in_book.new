@@ -7,46 +7,38 @@ title: parse complex nested blocks with multiple statements in book
     Token(Identifier("a"), 1),
     Some(String("global a")),
   ))),
-  Error(ParseError(
-    UnexpectedToken(Equal),
-    1,
-  )),
-  Ok(Some(Declaration(
-    Token(Identifier("b"), 2),
-    Some(String("global b")),
-  ))),
-  Error(ParseError(
-    UnexpectedToken(Equal),
-    2,
-  )),
+  Error(ParseError(ExpectRightValue, 2)),
   Ok(Some(Declaration(
     Token(Identifier("c"), 3),
     Some(String("global c")),
   ))),
-  Error(ParseError(
-    UnexpectedToken(Equal),
-    3,
-  )),
-  Error(ParseError(
-    UnexpectedToken(Equal),
-    5,
-  )),
-  Error(ParseError(
-    UnexpectedToken(Equal),
-    8,
-  )),
+  Ok(Some(Declaration(
+    Token(Identifier("a"), 5),
+    Some(String("outer a")),
+  ))),
+  Error(ParseError(ExpectRightValue, 6)),
+  Ok(Some(Block([
+    Declaration(
+      Token(Identifier("a"), 8),
+      Some(String("inner a")),
+    ),
+    Expression(Variable(Token(
+      Identifier("a"),
+      9,
+    ))),
+    Print(Variable(Token(
+      Identifier("b"),
+      10,
+    ))),
+    Print(Variable(Token(
+      Identifier("c"),
+      11,
+    ))),
+  ]))),
   Ok(Some(Print(Variable(Token(
-    Identifier("b"),
-    10,
+    Identifier("a"),
+    13,
   ))))),
-  Ok(Some(Print(Variable(Token(
-    Identifier("c"),
-    11,
-  ))))),
-  Error(ParseError(
-    UnexpectedToken(RightBrace),
-    12,
-  )),
   Ok(Some(Print(Variable(Token(
     Identifier("b"),
     14,

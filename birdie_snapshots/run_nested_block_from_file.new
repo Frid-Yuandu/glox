@@ -7,13 +7,6 @@ FailedParse([
     UnexpectedToken(RightBrace),
     16,
   ),
-  ParseError(
-    UnexpectedToken(RightBrace),
-    12,
-  ),
-  ParseError(UnexpectedToken(Equal), 8),
-  ParseError(UnexpectedToken(Equal), 5),
-  ParseError(UnexpectedToken(Equal), 3),
-  ParseError(UnexpectedToken(Equal), 2),
-  ParseError(UnexpectedToken(Equal), 1),
+  ParseError(ExpectRightValue, 6),
+  ParseError(ExpectRightValue, 2),
 ])
