@@ -83,9 +83,8 @@ pub fn interpret(
     }
 
     stmt.Block(statements) -> {
-      let block_env = environment.new_scope(interpreter.env)
       let #(rst, interpreter) =
-        interpret(Interpreter(..interpreter, env: block_env), statements)
+        interpret(dive_into_block(interpreter), statements)
 
       let assert Some(env) = interpreter.env.enclosing
       let interpreter = Interpreter(..interpreter, env:)
@@ -120,6 +119,11 @@ fn define_variable(
 ) -> Interpreter(a) {
   let env = environment.define(interpreter.env, name, value)
   Interpreter(..interpreter, env:)
+}
+
+fn dive_into_block(interpreter: Interpreter(a)) -> Interpreter(a) {
+  let block_env = environment.new_scope(interpreter.env)
+  Interpreter(..interpreter, env: block_env)
 }
 
 pub fn evaluate(
@@ -274,15 +278,10 @@ fn evaluate_binary(
 fn try_evaluate(
   interpreter: Interpreter(output),
   expr: Expr,
-  callback: fn(Object, Interpreter(output)) ->
+  fun: fn(Object, Interpreter(output)) ->
     #(Result(a, RuntimeError), Interpreter(output)),
 ) -> #(Result(a, RuntimeError), Interpreter(output)) {
   let #(rst, interpreter) = evaluate(interpreter, expr)
-  use <- bool.lazy_guard(result.is_error(rst), fn() {
-    let assert Error(err) = rst
-    #(Error(err), interpreter)
-  })
-  let assert Ok(value) = rst
-
-  callback(value, interpreter)
+  use obj, interpreter <- with_ok(in: rst, processer: interpreter)
+  fun(obj, interpreter)
 }
