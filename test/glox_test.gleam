@@ -1,10 +1,10 @@
-import birdie
 import gleeunit
-import pprint
 
 import glox
 import interpreter
 
+import birdie
+import pprint
 import simplifile
 
 // import gleeunit/should

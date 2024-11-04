@@ -11,8 +11,9 @@ FailedParse([
     UnexpectedToken(RightBrace),
     12,
   ),
-  ParseError(ExtraneousSemicolon, 8),
-  ParseError(ExtraneousSemicolon, 5),
-  ParseError(ExtraneousSemicolon, 3),
-  ParseError(ExtraneousSemicolon, 1),
+  ParseError(UnexpectedToken(Equal), 8),
+  ParseError(UnexpectedToken(Equal), 5),
+  ParseError(UnexpectedToken(Equal), 3),
+  ParseError(UnexpectedToken(Equal), 2),
+  ParseError(UnexpectedToken(Equal), 1),
 ])
