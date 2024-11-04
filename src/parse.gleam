@@ -78,6 +78,7 @@
 
 import gleam
 import gleam/bool
+import gleam/io
 import gleam/iterator.{type Iterator}
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -175,11 +176,11 @@ fn var_declaration(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
 /// var_declaration_inner parse a result of statement, because a `None` variable
 /// declaration doesn't make sense.
 fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
-  let assert Some(var_kw) = parser.tok0
+  let assert Some(Token(token.Var, var_line)) = parser.tok0
   let parser = advance(parser)
 
   use parser, var_name <- match_identifier(parser, #(
-    Error(ParseError(ExpectVariableName, var_kw.line)),
+    Error(ParseError(ExpectVariableName, var_line)),
     parser,
   ))
 
@@ -187,6 +188,7 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
     // variable declaration with initializer
     Some(Token(token.Equal, eq_line)) -> {
       let #(rst, parser) = advance(parser) |> expression
+
       use maybe_init, parser <- with_ok(rst, parser)
       case maybe_init, parser.tok0 {
         None, _ -> #(Error(ParseError(ExpectRightValue, eq_line)), parser)
@@ -194,10 +196,7 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
           Ok(Declaration(name: var_name, initializer: init)),
           advance(parser),
         )
-        _, _ -> #(
-          Error(ParseError(ExpectSemicolon, var_kw.line)),
-          advance(parser),
-        )
+        _, _ -> #(Error(ParseError(ExpectSemicolon, var_line)), advance(parser))
       }
     }
 
@@ -207,7 +206,7 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
       advance(parser),
     )
 
-    _ -> #(Error(ParseError(ExpectSemicolon, var_kw.line)), parser)
+    _ -> #(Error(ParseError(ExpectSemicolon, var_line)), parser)
   }
 }
 
@@ -312,27 +311,32 @@ fn block_inner(parser: Parser, acc: List(Stmt)) -> #(Result(List(Stmt)), Parser)
 }
 
 fn expr_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
-  let #(expr_rst, new_parser) = expression(parser)
+  let expr_begin_line =
+    parser.tok0
+    |> option.map(fn(tok) { tok.line })
+    |> option.unwrap(0)
 
-  use maybe_exp, parser <- with_ok(expr_rst, new_parser)
-  case new_parser.tok0, maybe_exp {
+  let #(expr_rst, parser) = expression(parser)
+
+  use maybe_exp, parser <- with_ok(expr_rst, parser)
+  case parser.tok0, maybe_exp {
     Some(Token(token.Semicolon, _)), Some(expr) -> #(
       Ok(Some(Expression(expr))),
-      advance(new_parser),
+      advance(parser),
     )
     Some(Token(token.Semicolon, line)), None -> #(
       Error(ParseError(ExtraneousSemicolon, line)),
-      advance(new_parser),
+      advance(parser),
     )
 
-    Some(t), _ -> #(Error(ParseError(ExpectSemicolon, t.line)), new_parser)
+    Some(t), _ -> #(Error(ParseError(ExpectSemicolon, t.line)), parser)
 
     // Valid none expression, representing a single of EOF.
-    None, Some(_) -> {
-      let assert Some(Token(_, line)) = parser.tok0
-      #(Error(ParseError(ExpectSemicolon, line)), new_parser)
-    }
-    None, None -> #(Ok(None), new_parser)
+    None, Some(_) -> #(
+      Error(ParseError(ExpectSemicolon, expr_begin_line)),
+      parser,
+    )
+    None, None -> #(Ok(None), parser)
   }
 }
 

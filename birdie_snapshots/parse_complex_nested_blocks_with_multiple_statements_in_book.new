@@ -8,29 +8,37 @@ title: parse complex nested blocks with multiple statements in book
     Some(String("global a")),
   ))),
   Error(ParseError(
-    ExtraneousSemicolon,
+    UnexpectedToken(Equal),
     1,
+  )),
+  Ok(Some(Declaration(
+    Token(Identifier("b"), 2),
+    Some(String("global b")),
+  ))),
+  Error(ParseError(
+    UnexpectedToken(Equal),
+    2,
   )),
   Ok(Some(Declaration(
     Token(Identifier("c"), 3),
     Some(String("global c")),
   ))),
   Error(ParseError(
-    ExtraneousSemicolon,
+    UnexpectedToken(Equal),
     3,
   )),
-  Ok(Some(Declaration(
-    Token(Identifier("a"), 5),
-    Some(String("outer a")),
-  ))),
   Error(ParseError(
-    ExtraneousSemicolon,
+    UnexpectedToken(Equal),
     5,
   )),
   Error(ParseError(
-    ExtraneousSemicolon,
+    UnexpectedToken(Equal),
     8,
   )),
+  Ok(Some(Print(Variable(Token(
+    Identifier("b"),
+    10,
+  ))))),
   Ok(Some(Print(Variable(Token(
     Identifier("c"),
     11,
