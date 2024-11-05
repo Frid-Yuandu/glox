@@ -96,7 +96,7 @@ import parse/expr.{
   NegativeNumber, NilLiteral, Number, String, Variable,
 }
 import parse/lexer.{type LexResult}
-import parse/stmt.{type Stmt, Block, Declaration, Expression, Print, While}
+import parse/stmt.{type Stmt, Block, Declaration, Expression, If, Print, While}
 import parse/token.{type Token, type TokenType, Token}
 import prelude.{with_ok}
 
@@ -218,96 +218,92 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
 
 fn statement(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   case parser.tok0 {
-    Some(Token(token.If, _)) -> if_stmt(parser)
-    Some(Token(token.While, _)) -> while_stmt(parser)
-    Some(Token(token.Print, _)) -> print_stmt(parser)
-    Some(Token(token.LeftBrace, _)) -> block(parser)
+    Some(Token(token.If, line)) -> if_stmt(advance(parser), line)
+    Some(Token(token.While, line)) -> while_stmt(advance(parser), line)
+    Some(Token(token.Print, line)) -> print_stmt(advance(parser), line)
+    Some(Token(token.LeftBrace, line)) -> block(advance(parser), line)
     _ -> expr_stmt(parser)
   }
 }
 
 /// if_stmt eagerly looks for the "else"" token, thus the else branch will be
 /// bound to the nearest if statement.
-fn if_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
-  // unwrap if token
-  let assert Some(Token(token.If, if_line)) = parser.tok0
-  let parser = advance(parser)
+fn if_stmt(
+  parser: Parser,
+  start_at line: Int,
+) -> #(Result(Option(Stmt)), Parser) {
+  let #(rst, parser) = if_stmt_inner(parser, line)
+  use rst, parser <- with_ok(in: rst, processer: parser)
 
-  // parse condition
-  use left_p, parser <- match(parser, type_of: token.LeftParen, otherwise: #(
-    Error(ParseError(ExpectLeftParentheses, if_line)),
+  #(Ok(Some(rst)), parser)
+}
+
+fn if_stmt_inner(parser, start_at line: Int) -> #(Result(Stmt), Parser) {
+  use condition, end_line, parser <- ensure_condition_valid_return_with_pos(
+    parser,
+    start_at: line,
+  )
+
+  // parse branches
+  let #(then_branch_rst, parser) = statement(parser)
+  use maybe_then, parser <- with_ok(then_branch_rst, parser)
+
+  use <- bool.guard(when: option.is_none(maybe_then), return: #(
+    Error(ParseError(ExpectStatement, end_line)),
     parser,
   ))
+  let assert Some(then_branch) = maybe_then
 
-  // decouple condition and branch?
-  let #(cond_rst, parser) = expression(parser)
-  use maybe_cond, parser <- with_ok(cond_rst, parser)
-  case maybe_cond {
-    None -> #(Error(ParseError(ExpectExpression, left_p.line)), parser)
-    Some(cond) -> {
-      use right_p, parser <- match(
-        parser,
-        type_of: token.RightParen,
-        otherwise: #(
-          Error(ParseError(ExpectRightParentheses, left_p.line)),
-          parser,
-        ),
-      )
-
-      // parse branches
-      let #(then_branch_rst, parser) = statement(parser)
-      use maybe_then, parser <- with_ok(then_branch_rst, parser)
-      case maybe_then {
-        None -> #(Error(ParseError(ExpectStatement, right_p.line)), parser)
-        Some(then_branch) -> {
-          use else_kw, parser <- match(
-            parser,
-            type_of: token.Else,
-            otherwise: #(
-              Ok(
-                Some(stmt.If(
-                  condition: cond,
-                  then_branch: then_branch,
-                  else_branch: None,
-                )),
-              ),
-              parser,
-            ),
-          )
-          let #(else_branch_rst, parser) = statement(parser)
-          use maybe_else, parser <- with_ok(else_branch_rst, parser)
-          case maybe_else {
-            None -> #(Error(ParseError(ExpectStatement, else_kw.line)), parser)
-            Some(else_branch) -> {
-              #(
-                Ok(
-                  Some(stmt.If(
-                    condition: cond,
-                    then_branch: then_branch,
-                    else_branch: Some(else_branch),
-                  )),
-                ),
-                parser,
-              )
-            }
-          }
-        }
-      }
-    }
+  use else_kw, parser <- match(parser, type_of: token.Else, otherwise: #(
+    Ok(If(condition:, then_branch:, else_branch: None)),
+    parser,
+  ))
+  let #(else_branch_rst, parser) = statement(parser)
+  use maybe_else, parser <- with_ok(else_branch_rst, parser)
+  case maybe_else {
+    None -> #(Error(ParseError(ExpectStatement, else_kw.line)), parser)
+    else_branch -> #(Ok(If(condition:, then_branch:, else_branch:)), parser)
   }
 }
 
-fn while_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
-  // unwrap while token
-  let assert Some(Token(token.While, while_line)) = parser.tok0
-  let parser = advance(parser)
+fn while_stmt(
+  parser: Parser,
+  start_at line: Int,
+) -> #(Result(Option(Stmt)), Parser) {
+  use condition, end_line, parser <- ensure_condition_valid_return_with_pos(
+    parser,
+    start_at: line,
+  )
 
-  // parse condition
+  let #(body_rst, parser) = statement(parser)
+  use maybe_body, parser <- with_ok(in: body_rst, processer: parser)
+
+  case maybe_body {
+    Some(body) -> #(Ok(Some(While(condition:, body:))), parser)
+    None -> #(Error(ParseError(ExpectStatement, end_line)), parser)
+  }
+}
+
+fn ensure_condition_valid_return_with_pos(
+  parser,
+  start_at line: Int,
+  with fun: fn(Expr, Int, Parser) -> #(Result(any), Parser),
+) -> #(Result(any), Parser) {
+  let #(cond_rst, parser) = parse_condition(parser, line)
+  use #(condition, end_line), parser <- with_ok(in: cond_rst, processer: parser)
+  fun(condition, end_line, parser)
+}
+
+fn parse_condition(
+  parser,
+  start_at line: Int,
+) -> #(gleam.Result(#(Expr, Int), ParseError), Parser) {
   use left_p, parser <- match(parser, type_of: token.LeftParen, otherwise: #(
-    Error(ParseError(ExpectLeftParentheses, while_line)),
+    Error(ParseError(ExpectLeftParentheses, line)),
     parser,
   ))
 
+  // ensure parse Ok and condition is not none. 
   let #(cond_rst, parser) = expression(parser)
   use maybe_cond, parser <- with_ok(cond_rst, parser)
   use <- bool.guard(when: option.is_none(maybe_cond), return: #(
@@ -321,20 +317,11 @@ fn while_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
     parser,
   ))
 
-  let #(body_rst, parser) = statement(parser)
-  use maybe_body, parser <- with_ok(in: body_rst, processer: parser)
-
-  case maybe_body {
-    Some(body) -> #(Ok(Some(While(condition: cond, body:))), parser)
-    None -> #(Error(ParseError(ExpectStatement, right_p.line)), parser)
-  }
+  #(Ok(#(cond, right_p.line)), parser)
 }
 
-fn block(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
-  let assert Some(Token(token.LeftBrace, l_brace_line)) = parser.tok0
-  let parser = advance(parser)
-
-  let #(rst, parser) = block_inner(parser, l_brace_line, [])
+fn block(parser: Parser, start_at line: Int) -> #(Result(Option(Stmt)), Parser) {
+  let #(rst, parser) = block_inner(parser, line, [])
   use statements, parser <- with_ok(rst, parser)
 
   #(Ok(Some(Block(statements))), advance(parser))
@@ -342,21 +329,63 @@ fn block(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
 
 fn block_inner(
   parser: Parser,
-  begin_line: Int,
-  acc: List(Stmt),
+  start_at line: Int,
+  acc acc: List(Stmt),
 ) -> #(Result(List(Stmt)), Parser) {
   case parser.tok0 {
-    None -> #(Error(ParseError(error.ExpectRightBrace, begin_line)), parser)
+    None -> #(Error(ParseError(error.ExpectRightBrace, line)), parser)
     Some(Token(token.RightBrace, _)) -> #(Ok(acc), parser)
     Some(_) -> {
       let #(rst, parser) = declaration(parser)
       case rst {
         Error(err) -> #(Error(err), parser)
-        Ok(None) -> block_inner(parser, begin_line, acc)
-        Ok(Some(s)) -> block_inner(parser, begin_line, list.append(acc, [s]))
+        Ok(None) -> block_inner(parser, line, acc)
+        Ok(Some(s)) -> block_inner(parser, line, list.append(acc, [s]))
       }
     }
   }
+}
+
+fn print_stmt(
+  parser: Parser,
+  start_at line: Int,
+) -> #(Result(Option(Stmt)), Parser) {
+  let #(rst, parser) = print_stmt_inner(parser, line)
+  case rst {
+    Ok(s) -> #(Ok(Some(s)), parser)
+    Error(err) -> #(Error(err), parser)
+  }
+}
+
+fn print_stmt_inner(
+  parser: Parser,
+  start_at line: Int,
+) -> #(Result(Stmt), Parser) {
+  let #(rst, parser) = expression(parser)
+
+  use maybe_expr, parser <- with_ok(rst, parser)
+  case parser.tok0, maybe_expr {
+    Some(Token(token.Semicolon, _)), Some(expr) -> #(
+      Ok(Print(expr)),
+      advance(parser),
+    )
+    Some(Token(token.Semicolon, _)), None -> #(
+      Error(ParseError(ExpectExpression, line)),
+      advance(parser),
+    )
+
+    _, _ -> #(Error(ParseError(ExpectSemicolon, line)), parser)
+  }
+}
+
+pub fn expression(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+  let #(rst, parser) = assignment(parser)
+  let rst = case parser.lex_errors {
+    [] -> rst
+    [err, ..] -> Error(ParseError(LexError(err), err.line))
+  }
+
+  #(rst, parser)
 }
 
 fn expr_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
@@ -387,45 +416,6 @@ fn expr_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
     )
     None, None -> #(Ok(None), parser)
   }
-}
-
-fn print_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
-  let #(rst, parser) = print_stmt_inner(parser)
-  case rst {
-    Ok(s) -> #(Ok(Some(s)), parser)
-    Error(err) -> #(Error(err), parser)
-  }
-}
-
-fn print_stmt_inner(parser: Parser) -> #(Result(Stmt), Parser) {
-  // remain the print token in order to get line for error report.
-  // Consume print keyword and parse expression
-  let assert Some(print_kw) = parser.tok0
-  let #(rst, parser) = expression(advance(parser))
-
-  use maybe_expr, parser <- with_ok(rst, parser)
-  case parser.tok0, maybe_expr {
-    Some(Token(token.Semicolon, _)), Some(expr) -> #(
-      Ok(Print(expr)),
-      advance(parser),
-    )
-    Some(Token(token.Semicolon, _)), None -> #(
-      Error(ParseError(ExpectExpression, print_kw.line)),
-      advance(parser),
-    )
-
-    _, _ -> #(Error(ParseError(ExpectSemicolon, print_kw.line)), parser)
-  }
-}
-
-pub fn expression(parser: Parser) -> #(Result(Option(Expr)), Parser) {
-  let #(rst, parser) = assignment(parser)
-  let rst = case parser.lex_errors {
-    [] -> rst
-    [err, ..] -> Error(ParseError(LexError(err), err.line))
-  }
-
-  #(rst, parser)
 }
 
 fn assignment(parser: Parser) -> #(Result(Option(Expr)), Parser) {

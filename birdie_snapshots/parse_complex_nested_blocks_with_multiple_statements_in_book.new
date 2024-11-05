@@ -1,0 +1,23 @@
+---
+version: 1.2.3
+title: parse complex nested blocks with multiple statements in book
+---
+[
+  Ok(Some(Declaration(
+    Token(Identifier("a"), 1),
+    Some(String("global a")),
+  ))),
+  Ok(Some(Declaration(
+    Token(Identifier("b"), 2),
+    Some(String("global b")),
+  ))),
+  Ok(Some(Declaration(
+    Token(Identifier("c"), 3),
+    Some(String("global c")),
+  ))),
+  Error(ParseError(ExpectExpression, 9)),
+  Error(ParseError(ExpectExpression, 13)),
+  Error(ParseError(ExpectExpression, 15)),
+  Error(ParseError(ExpectExpression, 17)),
+  Error(ParseError(ExpectExpression, 19)),
+]
