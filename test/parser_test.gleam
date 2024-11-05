@@ -711,6 +711,215 @@ pub fn should_not_parse_var_declaration_with_invalid_initializer_test() {
   should.be_true(contains(parse_result, expected_error))
 }
 
+// parse if statement
+
+pub fn should_parse_if_statement_without_else_test() {
+  let wanted = [
+    Ok(Some(stmt.If(expr.Number(1.0), stmt.Print(expr.Number(2.0)), None))),
+  ]
+
+  [
+    token.If,
+    token.LeftParen,
+    token.Number(1.0),
+    token.RightParen,
+    token.Print,
+    token.Number(2.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_parse_if_statement_with_else_test() {
+  let wanted = [
+    Ok(
+      Some(stmt.If(
+        expr.Number(1.0),
+        stmt.Print(expr.Number(2.0)),
+        Some(stmt.Print(expr.Number(3.0))),
+      )),
+    ),
+  ]
+
+  [
+    token.If,
+    token.LeftParen,
+    token.Number(1.0),
+    token.RightParen,
+    token.Print,
+    token.Number(2.0),
+    token.Semicolon,
+    token.Else,
+    token.Print,
+    token.Number(3.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_not_parse_if_statement_missing_left_paren_test() {
+  [token.If, token.RightParen, token.Number(1.0), token.Semicolon]
+  |> parse_wanted
+  |> pprint.format
+  |> birdie.snap(title: "error in parse if statement missing left parentheses")
+}
+
+pub fn should_not_parse_if_statement_missing_condition_test() {
+  [
+    token.If,
+    token.LeftParen,
+    token.RightParen,
+    token.Number(1.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> pprint.format
+  |> birdie.snap(title: "error in parse if statement missing condition")
+}
+
+pub fn should_not_parse_if_statement_missing_right_paren_test() {
+  [
+    token.If,
+    token.LeftParen,
+    token.Number(1.0),
+    token.Number(2.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> pprint.format
+  |> birdie.snap(title: "error in parse if statement missing right parentheses")
+}
+
+pub fn should_not_parse_if_statement_missing_body_test() {
+  [token.If, token.LeftParen, token.Number(1.0), token.RightParen]
+  |> parse_wanted
+  |> pprint.format
+  |> birdie.snap(title: "error in parse if statement missing body")
+}
+
+pub fn should_not_parse_if_statement_with_invalid_condition_test() {
+  [
+    token.If,
+    token.LeftParen,
+    token.Plus,
+    token.RightParen,
+    token.Number(1.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> pprint.format
+  |> birdie.snap(title: "error in parse invalid condition in if statement")
+}
+
+// parse while statement
+
+pub fn should_parse_while_statement_test() {
+  let wanted = [
+    Ok(Some(stmt.While(expr.Number(1.0), stmt.Print(expr.Number(2.0))))),
+  ]
+
+  [
+    token.While,
+    token.LeftParen,
+    token.Number(1.0),
+    token.RightParen,
+    token.Print,
+    token.Number(2.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_parse_nested_if_while_statement_test() {
+  let wanted = [
+    Ok(
+      Some(stmt.If(
+        expr.Number(1.0),
+        stmt.While(expr.Number(2.0), stmt.Print(expr.Number(3.0))),
+        None,
+      )),
+    ),
+  ]
+
+  [
+    token.If,
+    token.LeftParen,
+    token.Number(1.0),
+    token.RightParen,
+    token.While,
+    token.LeftParen,
+    token.Number(2.0),
+    token.RightParen,
+    token.Print,
+    token.Number(3.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_not_parse_while_statement_missing_condition_test() {
+  [
+    token.While,
+    token.LeftParen,
+    token.RightParen,
+    token.Number(1.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> pprint.format
+  |> birdie.snap(title: "error in parse while statement missing condition")
+}
+
+pub fn should_not_parse_while_statement_missing_left_paren_test() {
+  [token.While, token.RightParen, token.Number(1.0), token.Semicolon]
+  |> parse_wanted
+  |> pprint.format
+  |> birdie.snap(
+    title: "error in parse while statement missing left parentheses",
+  )
+}
+
+pub fn should_not_parse_while_statement_missing_right_paren_test() {
+  let expected_error = Error(ParseError(ExpectRightParentheses, 1))
+
+  let parse_result =
+    [
+      token.While,
+      token.LeftParen,
+      token.Number(1.0),
+      token.Number(2.0),
+      token.Semicolon,
+    ]
+    |> parse_wanted
+
+  should.be_true(contains(parse_result, expected_error))
+}
+
+pub fn should_not_parse_while_statement_missing_body_test() {
+  [token.While, token.LeftParen, token.Number(1.0), token.RightParen]
+  |> parse_wanted
+  |> pprint.format
+  |> birdie.snap(title: "error in parse while statement missing body")
+}
+
+pub fn should_not_parse_while_statement_with_invalid_condition_test() {
+  [
+    token.While,
+    token.LeftParen,
+    token.Minus,
+    token.RightParen,
+    token.Number(1.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> pprint.format
+  |> birdie.snap(title: "error in parse invalid condition in while statement")
+}
+
 // helper
 
 fn parse_wanted(

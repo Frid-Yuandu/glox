@@ -79,7 +79,6 @@
 
 import gleam
 import gleam/bool
-import gleam/io
 import gleam/iterator.{type Iterator}
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -97,7 +96,7 @@ import parse/expr.{
   NegativeNumber, NilLiteral, Number, String, Variable,
 }
 import parse/lexer.{type LexResult}
-import parse/stmt.{type Stmt, Block, Declaration, Expression, Print}
+import parse/stmt.{type Stmt, Block, Declaration, Expression, Print, While}
 import parse/token.{type Token, type TokenType, Token}
 import prelude.{with_ok}
 
@@ -125,15 +124,6 @@ pub fn from_source(source: String) -> Parser {
   |> new
 }
 
-fn to_iter(parser: Parser) -> Iterator(Result(Option(Stmt))) {
-  use parser <- iterator.unfold(parser)
-
-  case declaration(parser) {
-    #(Ok(None), _) -> iterator.Done
-    #(rst, parser) -> iterator.Next(rst, parser)
-  }
-}
-
 fn advance(parser: Parser) -> Parser {
   case iterator.step(parser.tokens) {
     iterator.Next(Ok(token), rest) ->
@@ -155,6 +145,16 @@ pub fn parse(parser: Parser) -> List(Result(Option(Stmt))) {
   |> iterator.to_list
 }
 
+fn to_iter(parser: Parser) -> Iterator(Result(Option(Stmt))) {
+  use parser <- iterator.unfold(parser)
+
+  case declaration(parser) {
+    #(Ok(None), _) -> iterator.Done
+    #(rst, parser) -> iterator.Next(rst, parser)
+  }
+}
+
+// Parsing enterpoint
 pub fn declaration(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   let #(rst, parser) = case parser.tok0 {
     Some(Token(token.Var, _)) -> var_declaration(parser)
@@ -316,15 +316,18 @@ fn while_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   ))
   let assert Some(cond) = maybe_cond
 
-  use _, parser <- match(parser, type_of: token.RightParen, otherwise: #(
+  use right_p, parser <- match(parser, type_of: token.RightParen, otherwise: #(
     Error(ParseError(ExpectRightParentheses, left_p.line)),
     parser,
   ))
 
   let #(body_rst, parser) = statement(parser)
-  use body, parser <- with_ok(in: body_rst, processer: parser)
+  use maybe_body, parser <- with_ok(in: body_rst, processer: parser)
 
-  #(Ok(Some(stmt.While(condition: cond, body:))), parser)
+  case maybe_body {
+    Some(body) -> #(Ok(Some(While(condition: cond, body:))), parser)
+    None -> #(Error(ParseError(ExpectStatement, right_p.line)), parser)
+  }
 }
 
 fn block(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
