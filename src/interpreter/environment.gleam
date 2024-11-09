@@ -1,5 +1,6 @@
 import gleam/dict.{type Dict}
 import gleam/option.{type Option, None, Some}
+import gleam/result
 
 import interpreter/runtime_error.{
   type RuntimeError, RuntimeError, UndefinedVariable,
@@ -49,7 +50,10 @@ pub fn assign(
   let has_key = dict.has_key(values, token.to_lexeme(name.type_))
   case has_key, enclosing {
     True, _ -> Ok(define(env, name, value))
-    False, Some(outer) -> assign(outer, name, value)
+    False, Some(outer) -> {
+      use outer_env <- result.try(assign(outer, name, value))
+      Ok(Environment(..env, enclosing: Some(outer_env)))
+    }
     False, None -> Error(RuntimeError(name, UndefinedVariable))
   }
 }
