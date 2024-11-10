@@ -74,7 +74,7 @@ fn execute_helper(
         Some(e) -> evaluate(interpreter, e)
         None -> #(Ok(NilVal), interpreter)
       }
-      use value, interpreter <- with_ok(in: rst, processer: interpreter)
+      use value <- with_ok(in: rst, processer: interpreter)
       let interpreter = define_variable(interpreter, name, value)
 
       execute_helper(interpreter, rest, Ok(None))
@@ -128,7 +128,7 @@ fn execute_if(
 ) -> #(InterpretResult(output), Interpreter(output)) {
   let #(cond_rst, interpreter) = evaluate(interpreter, cond)
 
-  use obj, interpreter <- with_ok(in: cond_rst, processer: interpreter)
+  use obj <- with_ok(in: cond_rst, processer: interpreter)
   case types.is_truthy(obj), maybe_else {
     True, _ -> execute_helper(interpreter, [then_branch], Ok(None))
     False, Some(else_branch) ->
@@ -145,12 +145,12 @@ fn execute_while(
   let #(cond_rst, interpreter) = evaluate(interpreter, cond)
 
   // loop body
-  use obj, interpreter <- with_ok(in: cond_rst, processer: interpreter)
+  use obj <- with_ok(in: cond_rst, processer: interpreter)
   case types.is_truthy(obj) {
     True -> {
       let #(body_rst, interpreter) =
         execute_helper(interpreter, [body], Ok(None))
-      use _output, interpreter <- with_ok(in: body_rst, processer: interpreter)
+      use _output <- with_ok(in: body_rst, processer: interpreter)
       execute_while(interpreter, cond, body)
     }
     False -> #(Ok(None), interpreter)
@@ -203,7 +203,7 @@ pub fn evaluate(
 
     expr.LogicOr(left, _tok, right) -> {
       let #(left_rst, interpreter) = evaluate(interpreter, left)
-      use left_obj, interpreter <- with_ok(left_rst, interpreter)
+      use left_obj <- with_ok(left_rst, interpreter)
       case types.is_truthy(left_obj) {
         True -> #(left_rst, interpreter)
         False -> evaluate(interpreter, right)
@@ -211,7 +211,7 @@ pub fn evaluate(
     }
     expr.LogicAnd(left, _tok, right) -> {
       let #(left_rst, interpreter) = evaluate(interpreter, left)
-      use left_obj, interpreter <- with_ok(left_rst, interpreter)
+      use left_obj <- with_ok(left_rst, interpreter)
       case types.is_truthy(left_obj) {
         False -> #(left_rst, interpreter)
         True -> evaluate(interpreter, right)
@@ -327,6 +327,6 @@ fn try_evaluate(
     #(Result(a, RuntimeError), Interpreter(output)),
 ) -> #(Result(a, RuntimeError), Interpreter(output)) {
   let #(rst, interpreter) = evaluate(interpreter, expr)
-  use obj, interpreter <- with_ok(in: rst, processer: interpreter)
+  use obj <- with_ok(in: rst, processer: interpreter)
   fun(obj, interpreter)
 }

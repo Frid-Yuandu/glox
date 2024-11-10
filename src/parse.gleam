@@ -190,7 +190,7 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
     Some(Token(token.Equal, eq_line)) -> {
       let #(rst, parser) = expression(advance(parser))
 
-      use maybe_init, parser <- with_ok(rst, parser)
+      use maybe_init <- with_ok(rst, parser)
 
       use <- bool.guard(when: option.is_none(maybe_init), return: #(
         Error(ParseError(ExpectRightValue, eq_line)),
@@ -233,7 +233,7 @@ fn if_stmt(
   start_at line: Int,
 ) -> #(Result(Option(Stmt)), Parser) {
   let #(rst, parser) = if_stmt_inner(parser, line)
-  use rst, parser <- with_ok(in: rst, processer: parser)
+  use rst <- with_ok(in: rst, processer: parser)
 
   #(Ok(Some(rst)), parser)
 }
@@ -246,7 +246,7 @@ fn if_stmt_inner(parser, start_at line: Int) -> #(Result(Stmt), Parser) {
 
   // parse branches
   let #(then_branch_rst, parser) = statement(parser)
-  use maybe_then, parser <- with_ok(then_branch_rst, parser)
+  use maybe_then <- with_ok(then_branch_rst, parser)
 
   use <- bool.guard(when: option.is_none(maybe_then), return: #(
     Error(ParseError(ExpectStatement, end_line)),
@@ -259,7 +259,7 @@ fn if_stmt_inner(parser, start_at line: Int) -> #(Result(Stmt), Parser) {
     parser,
   ))
   let #(else_branch_rst, parser) = statement(parser)
-  use maybe_else, parser <- with_ok(else_branch_rst, parser)
+  use maybe_else <- with_ok(else_branch_rst, parser)
   case maybe_else {
     None -> #(Error(ParseError(ExpectStatement, else_kw.line)), parser)
     else_branch -> #(Ok(If(condition:, then_branch:, else_branch:)), parser)
@@ -276,7 +276,7 @@ fn while_stmt(
   )
 
   let #(body_rst, parser) = statement(parser)
-  use maybe_body, parser <- with_ok(in: body_rst, processer: parser)
+  use maybe_body <- with_ok(in: body_rst, processer: parser)
 
   case maybe_body {
     Some(body) -> #(Ok(Some(While(condition:, body:))), parser)
@@ -290,7 +290,7 @@ fn ensure_condition_valid_return_with_pos(
   with fun: fn(Expr, Int, Parser) -> #(Result(any), Parser),
 ) -> #(Result(any), Parser) {
   let #(cond_rst, parser) = parse_condition(parser, line)
-  use #(condition, end_line), parser <- with_ok(in: cond_rst, processer: parser)
+  use #(condition, end_line) <- with_ok(in: cond_rst, processer: parser)
   fun(condition, end_line, parser)
 }
 
@@ -305,7 +305,7 @@ fn parse_condition(
 
   // ensure parse Ok and condition is not none. 
   let #(cond_rst, parser) = expression(parser)
-  use maybe_cond, parser <- with_ok(cond_rst, parser)
+  use maybe_cond <- with_ok(cond_rst, parser)
   use <- bool.guard(when: option.is_none(maybe_cond), return: #(
     Error(ParseError(ExpectExpression, left_p.line)),
     parser,
@@ -322,7 +322,7 @@ fn parse_condition(
 
 fn block(parser: Parser, start_at line: Int) -> #(Result(Option(Stmt)), Parser) {
   let #(rst, parser) = block_inner(parser, line, [])
-  use statements, parser <- with_ok(rst, parser)
+  use statements <- with_ok(rst, parser)
 
   #(Ok(Some(Block(statements))), advance(parser))
 }
@@ -363,7 +363,7 @@ fn print_stmt_inner(
 ) -> #(Result(Stmt), Parser) {
   let #(rst, parser) = expression(parser)
 
-  use maybe_expr, parser <- with_ok(rst, parser)
+  use maybe_expr <- with_ok(rst, parser)
   case parser.tok0, maybe_expr {
     Some(Token(token.Semicolon, _)), Some(expr) -> #(
       Ok(Print(expr)),
@@ -396,7 +396,7 @@ fn expr_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
 
   let #(expr_rst, parser) = expression(parser)
 
-  use maybe_exp, parser <- with_ok(expr_rst, parser)
+  use maybe_exp <- with_ok(expr_rst, parser)
   case parser.tok0, maybe_exp {
     Some(Token(token.Semicolon, _)), Some(expr) -> #(
       Ok(Some(Expression(expr))),
