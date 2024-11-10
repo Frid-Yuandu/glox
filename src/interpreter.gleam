@@ -53,13 +53,10 @@ fn execute_helper(
     [] -> #(last_result, interpreter)
     [Print(exp), ..rest] -> {
       let #(rst, interpreter) = evaluate(interpreter, exp)
-      case rst {
-        Ok(obj) -> {
-          let output = interpreter.io.write_stdout(types.inspect_object(obj))
-          execute_helper(interpreter, rest, Ok(Some(output)))
-        }
-        Error(err) -> #(Error(err), interpreter)
-      }
+      use obj <- with_ok(in: rst, processer: interpreter)
+
+      let output = interpreter.io.write_stdout(types.inspect_object(obj))
+      execute_helper(interpreter, rest, Ok(Some(output)))
     }
     [Expression(exp), ..rest] -> {
       let #(rst, interpreter) = evaluate(interpreter, exp)

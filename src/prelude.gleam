@@ -1,15 +1,16 @@
-// import gleam/option.{type Option, None, Some}
+import gleam/option.{type Option, None, Some}
 
-// pub fn with_some(
-//   in maybe: Option(any),
-//   processer processer: env,
-//   with fun: fn(any, env) -> #(Option(mapped), env),
-// ) -> #(Option(mapped), env) {
-//   case maybe {
-//     Some(inner) -> fun(inner, processer)
-//     None -> #(None, processer)
-//   }
-// }
+pub fn ensure_exist(
+  in maybe: Option(any),
+  otherwise return: Result(mapped, anyerr),
+  processer processer: env,
+  with fun: fn(any) -> #(Result(mapped, anyerr), env),
+) -> #(Result(mapped, anyerr), env) {
+  case maybe {
+    Some(inner) -> fun(inner)
+    None -> #(return, processer)
+  }
+}
 
 // deprecate
 pub fn with_ok_old(

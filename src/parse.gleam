@@ -82,7 +82,6 @@ import gleam/bool
 import gleam/iterator.{type Iterator}
 import gleam/list
 import gleam/option.{type Option, None, Some}
-import gleam/result
 
 import parse/error.{
   type LexicalError, type ParseError, ExpectExpression, ExpectLeftParentheses,
@@ -192,10 +191,16 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
 
       use maybe_init <- with_ok(rst, parser)
 
-      use <- bool.guard(when: option.is_none(maybe_init), return: #(
-        Error(ParseError(ExpectRightValue, eq_line)),
-        advance(parser),
-      ))
+      use _ <- prelude.ensure_exist(
+        in: maybe_init,
+        otherwise: Error(ParseError(ExpectRightValue, eq_line)),
+        processer: parser,
+      )
+      // potentially bug? original implementation:
+      // use <- bool.guard(when: option.is_none(maybe_init), return: #(
+      //   Error(ParseError(ExpectRightValue, eq_line)),
+      //   advance(parser),
+      // ))
 
       // Don't need to unwrap maybe_init here, because the constructor receive a option.
       use _, parser <- match(parser, type_of: token.Semicolon, otherwise: #(
@@ -248,11 +253,11 @@ fn if_stmt_inner(parser, start_at line: Int) -> #(Result(Stmt), Parser) {
   let #(then_branch_rst, parser) = statement(parser)
   use maybe_then <- with_ok(then_branch_rst, parser)
 
-  use <- bool.guard(when: option.is_none(maybe_then), return: #(
-    Error(ParseError(ExpectStatement, end_line)),
-    parser,
-  ))
-  let assert Some(then_branch) = maybe_then
+  use then_branch <- prelude.ensure_exist(
+    in: maybe_then,
+    otherwise: Error(ParseError(ExpectStatement, end_line)),
+    processer: parser,
+  )
 
   use else_kw, parser <- match(parser, type_of: token.Else, otherwise: #(
     Ok(If(condition:, then_branch:, else_branch: None)),
@@ -306,11 +311,11 @@ fn parse_condition(
   // ensure parse Ok and condition is not none. 
   let #(cond_rst, parser) = expression(parser)
   use maybe_cond <- with_ok(cond_rst, parser)
-  use <- bool.guard(when: option.is_none(maybe_cond), return: #(
-    Error(ParseError(ExpectExpression, left_p.line)),
-    parser,
-  ))
-  let assert Some(cond) = maybe_cond
+  use cond <- prelude.ensure_exist(
+    in: maybe_cond,
+    otherwise: Error(ParseError(ExpectExpression, left_p.line)),
+    processer: parser,
+  )
 
   use right_p, parser <- match(parser, type_of: token.RightParen, otherwise: #(
     Error(ParseError(ExpectRightParentheses, left_p.line)),
@@ -420,29 +425,30 @@ fn expr_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
 
 fn assignment(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   let #(rst, parser) as left_val = logic_or(parser)
+  use maybe_expr <- with_ok(in: rst, processer: parser)
 
-  // Successive double equal has consumed by the equality(), so here should be
-  // the single equal.
+  // Successive double equal has consumed by the previous procedure, so here 
+  // should be the single equal.
   use equals, parser <- match(parser, token.Equal, left_val)
+  use target <- prelude.ensure_exist(
+    in: maybe_expr,
+    otherwise: Error(ParseError(ExpectLeftValue, equals.line)),
+    processer: parser,
+  )
+
   // why advance?
-  let #(value_rst, parser) = assignment(advance(parser))
+  let #(value_rst, parser) = assignment(parser)
+  use maybe_value <- with_ok(in: value_rst, processer: parser)
+  use value <- prelude.ensure_exist(
+    in: maybe_value,
+    otherwise: Error(ParseError(ExpectRightValue, equals.line)),
+    processer: parser,
+  )
 
-  let rst = {
-    use maybe_expr <- result.try(rst)
-    // Detect whether assignment target a valid left-value expression
-    case maybe_expr {
-      Some(Variable(name)) ->
-        case value_rst {
-          Ok(Some(value)) -> Ok(Some(Assign(name, value)))
-          Ok(None) -> Error(ParseError(ExpectRightValue, equals.line))
-          Error(_) -> value_rst
-        }
-
-      Some(_) -> Error(ParseError(InvalidAssignmentTarget, equals.line))
-      _ -> Error(ParseError(ExpectLeftValue, equals.line))
-    }
+  let rst = case target {
+    Variable(name) -> Ok(Some(Assign(name, value)))
+    _ -> Error(ParseError(InvalidAssignmentTarget, equals.line))
   }
-
   #(rst, parser)
 }
 
