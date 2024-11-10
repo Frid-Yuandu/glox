@@ -9,8 +9,6 @@ import parse/expr
 import parse/stmt
 import parse/token.{Token}
 
-// TODO: combine none output
-
 pub fn should_interpret_literal_test() {
   let given_stmt = [
     stmt.Expression(expr.String("test\tstring")),
