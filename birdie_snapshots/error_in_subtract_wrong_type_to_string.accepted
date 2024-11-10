@@ -2,7 +2,7 @@
 version: 1.2.3
 title: error in subtract wrong type to string
 ---
-Error(RuntimeError(
+"Error(RuntimeError(
   Token(Minus, 1),
   OperandMustBeNumber,
-))
+))"

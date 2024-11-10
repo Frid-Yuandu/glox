@@ -12,24 +12,23 @@ import parse/token.{Token}
 // TODO: combine none output
 
 pub fn should_interpret_literal_test() {
-  let given_expr = [
+  let given_stmt = [
     stmt.Expression(expr.String("test\tstring")),
     stmt.Expression(expr.Boolean(False)),
     stmt.Expression(expr.Number(1.0)),
     stmt.Expression(expr.NilLiteral),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_expr)
-
-  snapshot(rst, title: "literal expression statements")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot(title: "literal expression statements")
 }
 
 // test unary expressions
 
 pub fn should_interpret_apply_bang_on_false_as_true_test() {
-  let given_expr = [
+  let given_stmt = [
     stmt.Expression(expr.NegativeBool(
       token: Token(token.Bang, 1),
       value: expr.Boolean(False),
@@ -44,17 +43,16 @@ pub fn should_interpret_apply_bang_on_false_as_true_test() {
     )),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_expr)
-
-  snapshot(rst, "unary expression statements")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("unary expression statements")
 }
 
 // test binary expressions
 
 pub fn should_interpret_binary_calculations_test() {
-  let given_expr = [
+  let given_stmt = [
     stmt.Expression(expr.Binary(
       expr.Number(3.0),
       Token(token.Plus, 1),
@@ -82,15 +80,14 @@ pub fn should_interpret_binary_calculations_test() {
     )),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_expr)
-
-  snapshot(rst, "binary calculations expression statements")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("binary calculations expression statements")
 }
 
 pub fn should_interpret_equal_equal_test() {
-  let given_expr = [
+  let given_stmt = [
     stmt.Expression(expr.Binary(
       expr.Number(10.0),
       Token(token.Greater, 1),
@@ -158,17 +155,16 @@ pub fn should_interpret_equal_equal_test() {
     )),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_expr)
-
-  snapshot(rst, "equalities expression statements")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("equalities expression statements")
 }
 
 // error cases in binary expressions
 
 pub fn should_error_on_add_number_and_non_number_types_test() {
-  let given_expr = [
+  let given_stmt = [
     stmt.Expression(expr.Binary(
       expr.Number(1.0),
       Token(token.Plus, 1),
@@ -176,15 +172,14 @@ pub fn should_error_on_add_number_and_non_number_types_test() {
     )),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_expr)
-
-  snapshot(rst, "error in add number with non-number")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("error in add number with non-number")
 }
 
 pub fn should_error_in_addition_non_number_or_string_types_test() {
-  let given_expr = [
+  let given_stmt = [
     stmt.Expression(expr.Binary(
       expr.NilLiteral,
       Token(token.Plus, 1),
@@ -192,15 +187,14 @@ pub fn should_error_in_addition_non_number_or_string_types_test() {
     )),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_expr)
-
-  snapshot(rst, "error in add not number or string type")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("error in add not number or string type")
 }
 
 pub fn should_error_on_addition_string_and_non_string_test() {
-  let given_expr = [
+  let given_stmt = [
     stmt.Expression(expr.Binary(
       expr.String("foo"),
       Token(token.Plus, 1),
@@ -208,15 +202,14 @@ pub fn should_error_on_addition_string_and_non_string_test() {
     )),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_expr)
-
-  snapshot(rst, "error in add wrong type to string")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("error in add wrong type to string")
 }
 
 pub fn should_error_on_subtraction_non_numbers_test() {
-  let given_expr = [
+  let given_stmt = [
     stmt.Expression(expr.Binary(
       expr.String("foo"),
       Token(token.Minus, 1),
@@ -224,15 +217,14 @@ pub fn should_error_on_subtraction_non_numbers_test() {
     )),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_expr)
-
-  snapshot(rst, "error in subtract wrong type to string")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("error in subtract wrong type to string")
 }
 
 pub fn should_error_in_division_by_zero_test() {
-  let given_expr = [
+  let given_stmt = [
     stmt.Expression(expr.Binary(
       expr.Number(10.0),
       Token(token.Slash, 1),
@@ -240,17 +232,16 @@ pub fn should_error_in_division_by_zero_test() {
     )),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_expr)
-
-  snapshot(rst, "error in divide by zero")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("error in divide by zero")
 }
 
 // test grouping expressions
 
 pub fn should_interpret_grouping_expression_test() {
-  let given_expr = [
+  let given_stmt = [
     stmt.Expression(
       expr.Grouping(
         Some(expr.Binary(
@@ -262,21 +253,19 @@ pub fn should_interpret_grouping_expression_test() {
     ),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_expr)
-
-  snapshot(rst, "non-empty gourping expression")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("non-empty gourping expression")
 }
 
 pub fn should_interpret_empty_grouping_test() {
-  let given_expr = [stmt.Expression(expr.Grouping(None))]
+  let given_stmt = [stmt.Expression(expr.Grouping(None))]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_expr)
-
-  snapshot(rst, "empty grouping expression")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("empty grouping expression")
 }
 
 // test if statement
@@ -290,11 +279,10 @@ pub fn should_interpret_if_statement_with_then_branch_test() {
     ),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_stmt)
-
-  snapshot(rst, "if statement with then branch only")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("if statement with then branch only")
 }
 
 pub fn should_interpret_if_statement_with_else_branch_test() {
@@ -306,11 +294,10 @@ pub fn should_interpret_if_statement_with_else_branch_test() {
     ),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_stmt)
-
-  snapshot(rst, "if statement with else branch")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("if statement with else branch")
 }
 
 pub fn should_interpret_nested_if_statements_test() {
@@ -326,11 +313,10 @@ pub fn should_interpret_nested_if_statements_test() {
     ),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_stmt)
-
-  snapshot(rst, "nested if statements")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("nested if statements")
 }
 
 pub fn should_interpret_if_with_block_statement_test() {
@@ -345,11 +331,10 @@ pub fn should_interpret_if_with_block_statement_test() {
     ),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_stmt)
-
-  snapshot(rst, "if statement with block")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("if statement with block")
 }
 
 pub fn should_interpret_if_with_expression_condition_test() {
@@ -365,11 +350,10 @@ pub fn should_interpret_if_with_expression_condition_test() {
     ),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_stmt)
-
-  snapshot(rst, "if statement with expression condition")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("if statement with expression condition")
 }
 
 pub fn should_interpret_if_with_truthy_values_test() {
@@ -394,11 +378,10 @@ pub fn should_interpret_if_with_truthy_values_test() {
     ),
   ]
 
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.interpret(given_stmt)
-
-  snapshot(rst, "if statement with different truthy values")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("if statement with different truthy values")
 }
 
 // test logic operation expressions
@@ -412,8 +395,10 @@ pub fn should_interpret_true_and_true_test() {
     )),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "true AND true")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("true AND true")
 }
 
 pub fn should_interpret_true_and_false_test() {
@@ -425,8 +410,10 @@ pub fn should_interpret_true_and_false_test() {
     )),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "true AND false")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("true AND false")
 }
 
 pub fn should_short_circuit_false_and_true_test() {
@@ -438,8 +425,10 @@ pub fn should_short_circuit_false_and_true_test() {
     )),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "false AND true (short-circuit)")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("false AND true (short-circuit)")
 }
 
 pub fn should_interpret_chained_and_operations_test() {
@@ -451,8 +440,10 @@ pub fn should_interpret_chained_and_operations_test() {
     )),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "chained AND operations")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("chained AND operations")
 }
 
 pub fn should_interpret_and_with_truthy_values_test() {
@@ -464,8 +455,10 @@ pub fn should_interpret_and_with_truthy_values_test() {
     )),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "AND with truthy values")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("AND with truthy values")
 }
 
 // Logic OR Tests
@@ -478,8 +471,10 @@ pub fn should_short_circuit_true_or_true_test() {
     )),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "true OR true (short-circuit)")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("true OR true (short-circuit)")
 }
 
 pub fn should_short_circuit_true_or_false_test() {
@@ -491,8 +486,10 @@ pub fn should_short_circuit_true_or_false_test() {
     )),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "true OR false (short-circuit)")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("true OR false (short-circuit)")
 }
 
 pub fn should_interpret_false_or_true_test() {
@@ -504,8 +501,10 @@ pub fn should_interpret_false_or_true_test() {
     )),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "false OR true")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("false OR true")
 }
 
 pub fn should_interpret_false_or_false_test() {
@@ -517,8 +516,10 @@ pub fn should_interpret_false_or_false_test() {
     )),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "false OR false")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("false OR false")
 }
 
 pub fn should_interpret_chained_or_operations_test() {
@@ -530,8 +531,10 @@ pub fn should_interpret_chained_or_operations_test() {
     )),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "chained OR operations")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("chained OR operations")
 }
 
 // Mixed Logic Tests
@@ -544,8 +547,10 @@ pub fn should_interpret_and_or_combination_test() {
     )),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "AND-OR combination")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("AND-OR combination")
 }
 
 pub fn should_interpret_or_and_combination_test() {
@@ -557,8 +562,10 @@ pub fn should_interpret_or_and_combination_test() {
     )),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "OR-AND combination")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("OR-AND combination")
 }
 
 pub fn should_interpret_nil_in_logic_operations_test() {
@@ -570,8 +577,10 @@ pub fn should_interpret_nil_in_logic_operations_test() {
     )),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "nil in logical operations")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("nil in logical operations")
 }
 
 // test while statements
@@ -600,8 +609,10 @@ pub fn should_interpret_basic_while_loop_test() {
     ),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "basic while loop")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("basic while loop")
 }
 
 pub fn should_interpret_while_with_false_condition_test() {
@@ -612,8 +623,10 @@ pub fn should_interpret_while_with_false_condition_test() {
     ),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "while with false condition")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("while with false condition")
 }
 
 pub fn should_interpret_nested_while_loops_test() {
@@ -665,8 +678,10 @@ pub fn should_interpret_nested_while_loops_test() {
     ),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "nested while loops")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("nested while loops")
 }
 
 // TODO: this case is not propriate, because no break statement is implemented.
@@ -698,9 +713,7 @@ pub fn should_interpret_nested_while_loops_test() {
 //       ]),
 //     ),
 //   ]
-
-//   let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-//   snapshot(rst, "while with break condition")
+//   snapshot( "while with break condition")
 // }
 
 pub fn should_interpret_while_with_logical_condition_test() {
@@ -735,8 +748,10 @@ pub fn should_interpret_while_with_logical_condition_test() {
     ),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "while with logical condition")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("while with logical condition")
 }
 
 pub fn should_interpret_while_with_variable_modification_test() {
@@ -772,11 +787,20 @@ pub fn should_interpret_while_with_variable_modification_test() {
     ),
   ]
 
-  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
-  snapshot(rst, "while with variable modification")
+  given_stmt
+  |> execute_case
+  |> pprint.format
+  |> snapshot("while with variable modification")
 }
 
 // helper
+fn execute_case(statement) {
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.execute(statement)
+  rst
+}
+
 fn new_test_interpreter() -> Interpreter(fn() -> String) {
   Interpreter(env: environment.new(), io: io_controller.io_capturer())
 }

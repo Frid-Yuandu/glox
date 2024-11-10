@@ -2,7 +2,7 @@
 version: 1.2.3
 title: error in add not number or string type
 ---
-Error(RuntimeError(
+"Error(RuntimeError(
   Token(Plus, 1),
   OperandMustBeNumberOrString,
-))
+))"

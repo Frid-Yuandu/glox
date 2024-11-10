@@ -2,4 +2,4 @@
 version: 1.2.3
 title: nil in logical operations
 ---
-Ok(None)
+"Ok(None)"

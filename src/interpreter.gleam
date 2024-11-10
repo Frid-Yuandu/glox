@@ -37,14 +37,14 @@ pub type InterpretResult(output) =
 /// interpret interprets the provided statements and return the interpret result
 /// of the last statement. This function will exhaust the statements unless a
 /// runtime error is occured.
-pub fn interpret(
+pub fn execute(
   interpreter: Interpreter(output),
   statements: List(Stmt),
 ) -> #(InterpretResult(output), Interpreter(output)) {
-  interpret_helper(interpreter, statements, Ok(None))
+  execute_helper(interpreter, statements, Ok(None))
 }
 
-fn interpret_helper(
+fn execute_helper(
   interpreter: Interpreter(output),
   statements: List(Stmt),
   last_result: InterpretResult(output),
@@ -56,7 +56,7 @@ fn interpret_helper(
       case rst {
         Ok(obj) -> {
           let output = interpreter.io.write_stdout(types.inspect_object(obj))
-          interpret_helper(interpreter, rest, Ok(Some(output)))
+          execute_helper(interpreter, rest, Ok(Some(output)))
         }
         Error(err) -> #(Error(err), interpreter)
       }
@@ -64,7 +64,7 @@ fn interpret_helper(
     [Expression(exp), ..rest] -> {
       let #(rst, interpreter) = evaluate(interpreter, exp)
       case rst {
-        Ok(_) -> interpret_helper(interpreter, rest, Ok(None))
+        Ok(_) -> execute_helper(interpreter, rest, Ok(None))
         Error(err) -> #(Error(err), interpreter)
       }
     }
@@ -77,50 +77,50 @@ fn interpret_helper(
       use value, interpreter <- with_ok(in: rst, processer: interpreter)
       let interpreter = define_variable(interpreter, name, value)
 
-      interpret_helper(interpreter, rest, Ok(None))
+      execute_helper(interpreter, rest, Ok(None))
     }
 
     [Block(statements), ..rest] -> {
-      let #(rst, interpreter) = interpret_block(interpreter, statements)
+      let #(rst, interpreter) = execute_block(interpreter, statements)
       case rst {
         Error(_) -> #(rst, interpreter)
-        Ok(_) -> interpret_helper(interpreter, rest, rst)
+        Ok(_) -> execute_helper(interpreter, rest, rst)
       }
     }
 
     [If(cond, then_branch, maybe_else), ..rest] -> {
       let #(rst, interpreter) =
-        interpreter_if(interpreter, cond, then_branch, maybe_else)
+        execute_if(interpreter, cond, then_branch, maybe_else)
       case rst {
         Error(_) -> #(rst, interpreter)
-        Ok(_) -> interpret_helper(interpreter, rest, rst)
+        Ok(_) -> execute_helper(interpreter, rest, rst)
       }
     }
     [While(cond, body), ..rest] -> {
-      let #(rst, interpreter) = interpret_while(interpreter, cond, body)
+      let #(rst, interpreter) = execute_while(interpreter, cond, body)
       case rst {
         Error(_) -> #(rst, interpreter)
-        Ok(_) -> interpret_helper(interpreter, rest, rst)
+        Ok(_) -> execute_helper(interpreter, rest, rst)
       }
     }
   }
 }
 
 // TODO: jump out of block safely, handle none enclosing case and return error
-fn interpret_block(
+fn execute_block(
   interpreter: Interpreter(output),
   statements: List(Stmt),
 ) -> #(InterpretResult(output), Interpreter(output)) {
   let #(rst, interpreter) =
     dive_into_block(interpreter)
-    |> interpret_helper(statements, Ok(None))
+    |> execute_helper(statements, Ok(None))
 
   let assert Some(env) = interpreter.env.enclosing
   let interpreter = Interpreter(..interpreter, env:)
   #(rst, interpreter)
 }
 
-fn interpreter_if(
+fn execute_if(
   interpreter: Interpreter(output),
   cond: Expr,
   then_branch: Stmt,
@@ -130,14 +130,14 @@ fn interpreter_if(
 
   use obj, interpreter <- with_ok(in: cond_rst, processer: interpreter)
   case types.is_truthy(obj), maybe_else {
-    True, _ -> interpret_helper(interpreter, [then_branch], Ok(None))
+    True, _ -> execute_helper(interpreter, [then_branch], Ok(None))
     False, Some(else_branch) ->
-      interpret_helper(interpreter, [else_branch], Ok(None))
+      execute_helper(interpreter, [else_branch], Ok(None))
     False, None -> #(Ok(None), interpreter)
   }
 }
 
-fn interpret_while(
+fn execute_while(
   interpreter: Interpreter(output),
   cond: Expr,
   body: Stmt,
@@ -149,9 +149,9 @@ fn interpret_while(
   case types.is_truthy(obj) {
     True -> {
       let #(body_rst, interpreter) =
-        interpret_helper(interpreter, [body], Ok(None))
+        execute_helper(interpreter, [body], Ok(None))
       use _output, interpreter <- with_ok(in: body_rst, processer: interpreter)
-      interpret_while(interpreter, cond, body)
+      execute_while(interpreter, cond, body)
     }
     False -> #(Ok(None), interpreter)
   }

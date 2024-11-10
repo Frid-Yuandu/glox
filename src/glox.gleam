@@ -65,7 +65,7 @@ pub fn run(interpreter: Interpreter(Nil), source: String) -> RunResult {
     maybe_statements
     |> option.values
     |> list.reverse
-    |> interpreter.interpret(interpreter, _)
+    |> interpreter.execute(interpreter, _)
 
   case interpret_rst {
     Ok(_) -> Complete

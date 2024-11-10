@@ -87,8 +87,7 @@ fn validate(parse_result: Result(a, ParseError)) -> InputState(a) {
 }
 
 fn interpret_stmt(stmt: Stmt, with repl: REPL(a)) -> REPL(a) {
-  let #(itpr_rest, interpreter) =
-    interpreter.interpret(repl.interpreter, [stmt])
+  let #(itpr_rest, interpreter) = interpreter.execute(repl.interpreter, [stmt])
   case itpr_rest {
     Error(err) -> printer.print_runtime_error(err)
     Ok(_) -> Nil
