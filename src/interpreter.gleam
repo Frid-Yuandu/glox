@@ -1,7 +1,5 @@
 import gleam/float
-import gleam/list
 import gleam/option.{type Option, None, Some}
-import gleam/pair
 
 import interpreter/environment.{type Environment, Environment}
 import interpreter/io_controller.{type IOInterface}
@@ -14,7 +12,7 @@ import parse/expr.{
   type Expr, Binary, Boolean, Grouping, NegativeBool, NegativeNumber, NilLiteral,
   Number, String, Variable,
 }
-import parse/stmt.{type Stmt}
+import parse/stmt.{type Stmt, Block, Declaration, Expression, If, Print, While}
 import parse/token.{type Token}
 import prelude.{with_ok}
 
@@ -34,80 +32,128 @@ pub type EvalResult =
 pub type InterpretResult(output) =
   Result(Option(output), RuntimeError)
 
+// TODO: refactor the output return type
+
 /// interpret interprets the provided statements and return the interpret result
 /// of the last statement. This function will exhaust the statements unless a
 /// runtime error is occured.
-///
-/// NOTE: Behaviour may change!
 pub fn interpret(
   interpreter: Interpreter(output),
   statements: List(Stmt),
 ) -> #(InterpretResult(output), Interpreter(output)) {
-  use #(_, interpreter), statement <- list.fold_until(statements, #(
-    Ok(None),
-    interpreter,
-  ))
+  interpret_helper(interpreter, statements, Ok(None))
+}
 
-  case statement {
-    stmt.Print(exp) -> {
+fn interpret_helper(
+  interpreter: Interpreter(output),
+  statements: List(Stmt),
+  last_result: InterpretResult(output),
+) -> #(InterpretResult(output), Interpreter(output)) {
+  case statements {
+    [] -> #(last_result, interpreter)
+    [Print(exp), ..rest] -> {
       let #(rst, interpreter) = evaluate(interpreter, exp)
       case rst {
         Ok(obj) -> {
           let output = interpreter.io.write_stdout(types.inspect_object(obj))
-          list.Continue(#(Ok(Some(output)), interpreter))
+          interpret_helper(interpreter, rest, Ok(Some(output)))
         }
-        Error(err) -> list.Stop(#(Error(err), interpreter))
+        Error(err) -> #(Error(err), interpreter)
       }
     }
-    stmt.Expression(exp) -> {
+    [Expression(exp), ..rest] -> {
       let #(rst, interpreter) = evaluate(interpreter, exp)
       case rst {
-        Ok(_) -> list.Continue(#(Ok(None), interpreter))
-        Error(err) -> list.Stop(#(Error(err), interpreter))
+        Ok(_) -> interpret_helper(interpreter, rest, Ok(None))
+        Error(err) -> #(Error(err), interpreter)
       }
     }
-    stmt.Declaration(name, initializer) -> {
-      let rst = case initializer {
-        Some(e) -> evaluate(interpreter, e) |> pair.first
-        None -> Ok(NilVal)
+    [Declaration(name, initializer), ..rest] -> {
+      // assign nil to variables without initializer
+      let #(rst, interpreter) = case initializer {
+        Some(e) -> evaluate(interpreter, e)
+        None -> #(Ok(NilVal), interpreter)
       }
+      use value, interpreter <- with_ok(in: rst, processer: interpreter)
+      let interpreter = define_variable(interpreter, name, value)
+
+      interpret_helper(interpreter, rest, Ok(None))
+    }
+
+    [Block(statements), ..rest] -> {
+      let #(rst, interpreter) = interpret_block(interpreter, statements)
       case rst {
-        Ok(value) -> {
-          let interpreter = define_variable(interpreter, name, value)
-          list.Continue(#(Ok(None), interpreter))
-        }
-        Error(err) -> list.Stop(#(Error(err), interpreter))
+        Error(_) -> #(rst, interpreter)
+        Ok(_) -> interpret_helper(interpreter, rest, rst)
       }
     }
 
-    stmt.Block(statements) -> {
+    [If(cond, then_branch, maybe_else), ..rest] -> {
       let #(rst, interpreter) =
-        interpret(dive_into_block(interpreter), statements)
-
-      let assert Some(env) = interpreter.env.enclosing
-      let interpreter = Interpreter(..interpreter, env:)
+        interpreter_if(interpreter, cond, then_branch, maybe_else)
       case rst {
-        Error(_) -> list.Stop(#(rst, interpreter))
-        Ok(_) -> list.Continue(#(rst, interpreter))
+        Error(_) -> #(rst, interpreter)
+        Ok(_) -> interpret_helper(interpreter, rest, rst)
       }
     }
-
-    stmt.If(cond, then_branch, maybe_else) -> {
-      let #(cond_rst, interpreter) = evaluate(interpreter, cond)
-      let #(rst, interpreter) = {
-        use obj, interpreter <- with_ok(in: cond_rst, processer: interpreter)
-        case types.is_truthy(obj), maybe_else {
-          True, _ -> interpret(interpreter, [then_branch])
-          False, Some(else_branch) -> interpret(interpreter, [else_branch])
-          False, None -> #(Ok(None), interpreter)
-        }
-      }
+    [While(cond, body), ..rest] -> {
+      let #(rst, interpreter) = interpret_while(interpreter, cond, body)
       case rst {
-        Error(_) -> list.Stop(#(rst, interpreter))
-        Ok(_) -> list.Continue(#(rst, interpreter))
+        Error(_) -> #(rst, interpreter)
+        Ok(_) -> interpret_helper(interpreter, rest, rst)
       }
     }
-    stmt.While(_, _) -> todo
+  }
+}
+
+// TODO: jump out of block safely, handle none enclosing case and return error
+fn interpret_block(
+  interpreter: Interpreter(output),
+  statements: List(Stmt),
+) -> #(InterpretResult(output), Interpreter(output)) {
+  let #(rst, interpreter) =
+    dive_into_block(interpreter)
+    |> interpret_helper(statements, Ok(None))
+
+  let assert Some(env) = interpreter.env.enclosing
+  let interpreter = Interpreter(..interpreter, env:)
+  #(rst, interpreter)
+}
+
+fn interpreter_if(
+  interpreter: Interpreter(output),
+  cond: Expr,
+  then_branch: Stmt,
+  maybe_else: Option(Stmt),
+) -> #(InterpretResult(output), Interpreter(output)) {
+  let #(cond_rst, interpreter) = evaluate(interpreter, cond)
+
+  use obj, interpreter <- with_ok(in: cond_rst, processer: interpreter)
+  case types.is_truthy(obj), maybe_else {
+    True, _ -> interpret_helper(interpreter, [then_branch], Ok(None))
+    False, Some(else_branch) ->
+      interpret_helper(interpreter, [else_branch], Ok(None))
+    False, None -> #(Ok(None), interpreter)
+  }
+}
+
+fn interpret_while(
+  interpreter: Interpreter(output),
+  cond: Expr,
+  body: Stmt,
+) -> #(InterpretResult(output), Interpreter(output)) {
+  let #(cond_rst, interpreter) = evaluate(interpreter, cond)
+
+  // loop body
+  use obj, interpreter <- with_ok(in: cond_rst, processer: interpreter)
+  case types.is_truthy(obj) {
+    True -> {
+      let #(body_rst, interpreter) =
+        interpret_helper(interpreter, [body], Ok(None))
+      use _output, interpreter <- with_ok(in: body_rst, processer: interpreter)
+      interpret_while(interpreter, cond, body)
+    }
+    False -> #(Ok(None), interpreter)
   }
 }
 

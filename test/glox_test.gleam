@@ -7,8 +7,6 @@ import birdie
 import pprint
 import simplifile
 
-// import gleeunit/should
-
 pub fn main() {
   gleeunit.main()
 }

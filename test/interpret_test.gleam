@@ -279,6 +279,503 @@ pub fn should_interpret_empty_grouping_test() {
   snapshot(rst, "empty grouping expression")
 }
 
+// test if statement
+
+pub fn should_interpret_if_statement_with_then_branch_test() {
+  let given_stmt = [
+    stmt.If(
+      condition: expr.Boolean(True),
+      then_branch: stmt.Print(expr.String("then")),
+      else_branch: None,
+    ),
+  ]
+
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_stmt)
+
+  snapshot(rst, "if statement with then branch only")
+}
+
+pub fn should_interpret_if_statement_with_else_branch_test() {
+  let given_stmt = [
+    stmt.If(
+      condition: expr.Boolean(False),
+      then_branch: stmt.Print(expr.String("then")),
+      else_branch: Some(stmt.Print(expr.String("else"))),
+    ),
+  ]
+
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_stmt)
+
+  snapshot(rst, "if statement with else branch")
+}
+
+pub fn should_interpret_nested_if_statements_test() {
+  let given_stmt = [
+    stmt.If(
+      condition: expr.Boolean(True),
+      then_branch: stmt.If(
+        condition: expr.Boolean(True),
+        then_branch: stmt.Print(expr.String("nested then")),
+        else_branch: None,
+      ),
+      else_branch: None,
+    ),
+  ]
+
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_stmt)
+
+  snapshot(rst, "nested if statements")
+}
+
+pub fn should_interpret_if_with_block_statement_test() {
+  let given_stmt = [
+    stmt.If(
+      condition: expr.Boolean(True),
+      then_branch: stmt.Block([
+        stmt.Print(expr.String("first")),
+        stmt.Print(expr.String("second")),
+      ]),
+      else_branch: None,
+    ),
+  ]
+
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_stmt)
+
+  snapshot(rst, "if statement with block")
+}
+
+pub fn should_interpret_if_with_expression_condition_test() {
+  let given_stmt = [
+    stmt.If(
+      condition: expr.Binary(
+        expr.Number(5.0),
+        Token(token.Greater, 1),
+        expr.Number(3.0),
+      ),
+      then_branch: stmt.Print(expr.String("condition true")),
+      else_branch: Some(stmt.Print(expr.String("condition false"))),
+    ),
+  ]
+
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_stmt)
+
+  snapshot(rst, "if statement with expression condition")
+}
+
+pub fn should_interpret_if_with_truthy_values_test() {
+  let given_stmt = [
+    // Numbers are truthy
+    stmt.If(
+      condition: expr.Number(1.0),
+      then_branch: stmt.Print(expr.String("number is truthy")),
+      else_branch: None,
+    ),
+    // Strings are truthy
+    stmt.If(
+      condition: expr.String("hello"),
+      then_branch: stmt.Print(expr.String("string is truthy")),
+      else_branch: None,
+    ),
+    // nil is falsy
+    stmt.If(
+      condition: expr.NilLiteral,
+      then_branch: stmt.Print(expr.String("won't print")),
+      else_branch: Some(stmt.Print(expr.String("nil is falsy"))),
+    ),
+  ]
+
+  let #(rst, _) =
+    new_test_interpreter()
+    |> interpreter.interpret(given_stmt)
+
+  snapshot(rst, "if statement with different truthy values")
+}
+
+// test logic operation expressions
+
+pub fn should_interpret_true_and_true_test() {
+  let given_stmt = [
+    stmt.Expression(expr.LogicAnd(
+      expr.Boolean(True),
+      Token(token.And, 1),
+      expr.Boolean(True),
+    )),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "true AND true")
+}
+
+pub fn should_interpret_true_and_false_test() {
+  let given_stmt = [
+    stmt.Expression(expr.LogicAnd(
+      expr.Boolean(True),
+      Token(token.And, 1),
+      expr.Boolean(False),
+    )),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "true AND false")
+}
+
+pub fn should_short_circuit_false_and_true_test() {
+  let given_stmt = [
+    stmt.Expression(expr.LogicAnd(
+      expr.Boolean(False),
+      Token(token.And, 1),
+      expr.Boolean(True),
+    )),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "false AND true (short-circuit)")
+}
+
+pub fn should_interpret_chained_and_operations_test() {
+  let given_stmt = [
+    stmt.Expression(expr.LogicAnd(
+      expr.LogicAnd(expr.Boolean(True), Token(token.And, 1), expr.Boolean(True)),
+      Token(token.And, 1),
+      expr.Boolean(True),
+    )),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "chained AND operations")
+}
+
+pub fn should_interpret_and_with_truthy_values_test() {
+  let given_stmt = [
+    stmt.Expression(expr.LogicAnd(
+      expr.Number(1.0),
+      Token(token.And, 1),
+      expr.String("hello"),
+    )),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "AND with truthy values")
+}
+
+// Logic OR Tests
+pub fn should_short_circuit_true_or_true_test() {
+  let given_stmt = [
+    stmt.Expression(expr.LogicOr(
+      expr.Boolean(True),
+      Token(token.Or, 1),
+      expr.Boolean(True),
+    )),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "true OR true (short-circuit)")
+}
+
+pub fn should_short_circuit_true_or_false_test() {
+  let given_stmt = [
+    stmt.Expression(expr.LogicOr(
+      expr.Boolean(True),
+      Token(token.Or, 1),
+      expr.Boolean(False),
+    )),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "true OR false (short-circuit)")
+}
+
+pub fn should_interpret_false_or_true_test() {
+  let given_stmt = [
+    stmt.Expression(expr.LogicOr(
+      expr.Boolean(False),
+      Token(token.Or, 1),
+      expr.Boolean(True),
+    )),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "false OR true")
+}
+
+pub fn should_interpret_false_or_false_test() {
+  let given_stmt = [
+    stmt.Expression(expr.LogicOr(
+      expr.Boolean(False),
+      Token(token.Or, 1),
+      expr.Boolean(False),
+    )),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "false OR false")
+}
+
+pub fn should_interpret_chained_or_operations_test() {
+  let given_stmt = [
+    stmt.Expression(expr.LogicOr(
+      expr.LogicOr(expr.Boolean(False), Token(token.Or, 1), expr.Boolean(False)),
+      Token(token.Or, 1),
+      expr.Boolean(True),
+    )),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "chained OR operations")
+}
+
+// Mixed Logic Tests
+pub fn should_interpret_and_or_combination_test() {
+  let given_stmt = [
+    stmt.Expression(expr.LogicOr(
+      expr.LogicAnd(expr.Boolean(True), Token(token.And, 1), expr.Boolean(True)),
+      Token(token.Or, 1),
+      expr.Boolean(False),
+    )),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "AND-OR combination")
+}
+
+pub fn should_interpret_or_and_combination_test() {
+  let given_stmt = [
+    stmt.Expression(expr.LogicAnd(
+      expr.LogicOr(expr.Boolean(False), Token(token.Or, 1), expr.Boolean(True)),
+      Token(token.And, 1),
+      expr.Boolean(True),
+    )),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "OR-AND combination")
+}
+
+pub fn should_interpret_nil_in_logic_operations_test() {
+  let given_stmt = [
+    stmt.Expression(expr.LogicAnd(
+      expr.NilLiteral,
+      Token(token.And, 1),
+      expr.Boolean(True),
+    )),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "nil in logical operations")
+}
+
+// test while statements
+
+pub fn should_interpret_basic_while_loop_test() {
+  let given_stmt = [
+    // var i = 0; while (i < 3) { print i; i = i + 1; }
+    stmt.Declaration(Token(token.Identifier("i"), 1), Some(expr.Number(0.0))),
+    stmt.While(
+      condition: expr.Binary(
+        expr.Variable(Token(token.Identifier("i"), 1)),
+        Token(token.Less, 1),
+        expr.Number(3.0),
+      ),
+      body: stmt.Block([
+        stmt.Print(expr.Variable(Token(token.Identifier("i"), 1))),
+        stmt.Expression(expr.Assign(
+          Token(token.Identifier("i"), 1),
+          expr.Binary(
+            expr.Variable(Token(token.Identifier("i"), 1)),
+            Token(token.Plus, 1),
+            expr.Number(1.0),
+          ),
+        )),
+      ]),
+    ),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "basic while loop")
+}
+
+pub fn should_interpret_while_with_false_condition_test() {
+  let given_stmt = [
+    stmt.While(
+      condition: expr.Boolean(False),
+      body: stmt.Print(expr.String("should not print")),
+    ),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "while with false condition")
+}
+
+pub fn should_interpret_nested_while_loops_test() {
+  let given_stmt = [
+    // var i = 0; while (i < 2) { var j = 0; while (j < 2) { print i + j; j = j + 1; } i = i + 1; }
+    stmt.Declaration(Token(token.Identifier("i"), 1), Some(expr.Number(0.0))),
+    stmt.While(
+      condition: expr.Binary(
+        expr.Variable(Token(token.Identifier("i"), 1)),
+        Token(token.Less, 1),
+        expr.Number(2.0),
+      ),
+      body: stmt.Block([
+        stmt.Declaration(
+          Token(token.Identifier("j"), 1),
+          Some(expr.Number(0.0)),
+        ),
+        stmt.While(
+          condition: expr.Binary(
+            expr.Variable(Token(token.Identifier("j"), 1)),
+            Token(token.Less, 1),
+            expr.Number(2.0),
+          ),
+          body: stmt.Block([
+            stmt.Print(expr.Binary(
+              expr.Variable(Token(token.Identifier("i"), 1)),
+              Token(token.Plus, 1),
+              expr.Variable(Token(token.Identifier("j"), 1)),
+            )),
+            stmt.Expression(expr.Assign(
+              Token(token.Identifier("j"), 1),
+              expr.Binary(
+                expr.Variable(Token(token.Identifier("j"), 1)),
+                Token(token.Plus, 1),
+                expr.Number(1.0),
+              ),
+            )),
+          ]),
+        ),
+        stmt.Expression(expr.Assign(
+          Token(token.Identifier("i"), 1),
+          expr.Binary(
+            expr.Variable(Token(token.Identifier("i"), 1)),
+            Token(token.Plus, 1),
+            expr.Number(1.0),
+          ),
+        )),
+      ]),
+    ),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "nested while loops")
+}
+
+// TODO: this case is not propriate, because no break statement is implemented.
+// pub fn should_interpret_while_with_break_condition_test() {
+//   let given_stmt = [
+//     // var x = 0; while (true) { print x; x = x + 1; if (x > 2) break; }
+//     stmt.Declaration(Token(token.Identifier("x"), 1), Some(expr.Number(0.0))),
+//     stmt.While(
+//       condition: expr.Boolean(True),
+//       body: stmt.Block([
+//         stmt.Print(expr.Variable(Token(token.Identifier("x"), 1))),
+//         stmt.Expression(expr.Assign(
+//           Token(token.Identifier("x"), 1),
+//           expr.Binary(
+//             expr.Variable(Token(token.Identifier("x"), 1)),
+//             Token(token.Plus, 1),
+//             expr.Number(1.0),
+//           ),
+//         )),
+//         stmt.If(
+//           condition: expr.Binary(
+//             expr.Variable(Token(token.Identifier("x"), 1)),
+//             Token(token.Greater, 1),
+//             expr.Number(2.0),
+//           ),
+//           then_branch: stmt.Expression(expr.Boolean(False)),
+//           else_branch: None,
+//         ),
+//       ]),
+//     ),
+//   ]
+
+//   let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+//   snapshot(rst, "while with break condition")
+// }
+
+pub fn should_interpret_while_with_logical_condition_test() {
+  let given_stmt = [
+    // var x = 0; while (x < 2 and x >= 0) { print x; x = x + 1; }
+    stmt.Declaration(Token(token.Identifier("x"), 1), Some(expr.Number(0.0))),
+    stmt.While(
+      condition: expr.LogicAnd(
+        expr.Binary(
+          expr.Variable(Token(token.Identifier("x"), 1)),
+          Token(token.Less, 1),
+          expr.Number(2.0),
+        ),
+        Token(token.And, 1),
+        expr.Binary(
+          expr.Variable(Token(token.Identifier("x"), 1)),
+          Token(token.GreaterEqual, 1),
+          expr.Number(0.0),
+        ),
+      ),
+      body: stmt.Block([
+        stmt.Print(expr.Variable(Token(token.Identifier("x"), 1))),
+        stmt.Expression(expr.Assign(
+          Token(token.Identifier("x"), 1),
+          expr.Binary(
+            expr.Variable(Token(token.Identifier("x"), 1)),
+            Token(token.Plus, 1),
+            expr.Number(1.0),
+          ),
+        )),
+      ]),
+    ),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "while with logical condition")
+}
+
+pub fn should_interpret_while_with_variable_modification_test() {
+  let given_stmt = [
+    // var sum = 0; var n = 3; while (n > 0) { sum = sum + n; n = n - 1; }
+    stmt.Declaration(Token(token.Identifier("sum"), 1), Some(expr.Number(0.0))),
+    stmt.Declaration(Token(token.Identifier("n"), 1), Some(expr.Number(3.0))),
+    stmt.While(
+      condition: expr.Binary(
+        expr.Variable(Token(token.Identifier("n"), 1)),
+        Token(token.Greater, 1),
+        expr.Number(0.0),
+      ),
+      body: stmt.Block([
+        stmt.Expression(expr.Assign(
+          Token(token.Identifier("sum"), 1),
+          expr.Binary(
+            expr.Variable(Token(token.Identifier("sum"), 1)),
+            Token(token.Plus, 1),
+            expr.Variable(Token(token.Identifier("n"), 1)),
+          ),
+        )),
+        stmt.Expression(expr.Assign(
+          Token(token.Identifier("n"), 1),
+          expr.Binary(
+            expr.Variable(Token(token.Identifier("n"), 1)),
+            Token(token.Minus, 1),
+            expr.Number(1.0),
+          ),
+        )),
+        stmt.Print(expr.Variable(Token(token.Identifier("sum"), 1))),
+      ]),
+    ),
+  ]
+
+  let #(rst, _) = new_test_interpreter() |> interpreter.interpret(given_stmt)
+  snapshot(rst, "while with variable modification")
+}
+
 // helper
 fn new_test_interpreter() -> Interpreter(fn() -> String) {
   Interpreter(env: environment.new(), io: io_controller.io_capturer())
