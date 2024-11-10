@@ -1,0 +1,7 @@
+---
+version: 1.2.3
+title: error in parse while statement missing body
+file: ./test/parser_test.gleam
+test_name: should_not_parse_while_statement_missing_body_test
+---
+[Error(ParseError(ExpectStatement, 1))]

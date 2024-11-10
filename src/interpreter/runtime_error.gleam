@@ -10,20 +10,23 @@ pub type RuntimeErrorType {
   OperandMustBeString
   OperandMustBeNumberOrString
   DivideByZero
+  UndefinedVariable
 }
 
 pub fn inspect_runtime_error(err: RuntimeError) -> String {
-  let msg = case err {
-    RuntimeError(op, OperandMustBeNumber) ->
-      "the operands of " <> prettier_token(op) <> " must be Number type."
-    RuntimeError(op, OperandMustBeString) ->
-      "the operands of " <> prettier_token(op) <> " must be String type."
-    RuntimeError(op, OperandMustBeNumberOrString) ->
+  let msg = case err.error {
+    OperandMustBeNumber ->
+      "the operands of " <> prettier_token(err.token) <> " must be Number type."
+    OperandMustBeString ->
+      "the operands of " <> prettier_token(err.token) <> " must be String type."
+    OperandMustBeNumberOrString ->
       "the operands of "
-      <> prettier_token(op)
+      <> prettier_token(err.token)
       <> " must be Number type or String type."
-    RuntimeError(op, DivideByZero) ->
-      "divide a number by 0 is not supportted." <> prettier_token(op)
+    DivideByZero ->
+      "divide a number by 0 is not supportted." <> prettier_token(err.token)
+    UndefinedVariable ->
+      "undefined variable \"" <> token.to_lexeme(err.token.type_) <> "\" ."
   }
   "Runtime Error: " <> msg
 }

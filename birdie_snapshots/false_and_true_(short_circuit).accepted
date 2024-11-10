@@ -1,0 +1,5 @@
+---
+version: 1.2.3
+title: false AND true (short-circuit)
+---
+"Ok(None)"

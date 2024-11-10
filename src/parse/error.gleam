@@ -34,33 +34,67 @@ pub type ParseError {
 }
 
 pub type ParseErrorType {
-  ExpectValue
-  ExpectExpression
-  UnexpectedToken(TokenType)
   LexError(LexicalError)
-  UnclosingParenthesis
+
+  ExpectRightValue
+  ExpectLeftValue
+  ExpectExpression
+  ExpectStatement
+  ExpectSemicolon
+  ExpectLeftParentheses
+  ExpectRightParentheses
+  ExpectRightBrace
+  ExpectVariableName
+
   ExtraneousParenthesis
+  ExtraneousSemicolon
+
+  InvalidAssignmentTarget
+
+  UnexpectedToken(TokenType)
 }
 
 pub fn inspect_parse_error(err: ParseError) -> String {
-  case err {
-    ParseError(ExpectValue, line) ->
-      "Expected a value on line " <> int.to_string(line)
-    ParseError(ExpectExpression, line) ->
-      "Expected an expression on line " <> int.to_string(line)
-    ParseError(UnexpectedToken(tok), line) ->
-      "Unexpected token '"
-      <> token.to_string(tok)
-      <> "' on line "
-      <> int.to_string(line)
-    ParseError(LexError(lex_error), line) ->
+  case err.error {
+    LexError(lex_error) ->
       "Lexical error: "
       <> inspect_lex_error(lex_error)
       <> " on line "
-      <> int.to_string(line)
-    ParseError(UnclosingParenthesis, line) ->
-      "Unclosed parenthesis on line " <> int.to_string(line)
-    ParseError(ExtraneousParenthesis, line) ->
-      "Extraneous closing parenthesis \")\": " <> int.to_string(line)
+      <> int.to_string(err.line)
+
+    ExpectRightValue -> "Expect a value on line " <> int.to_string(err.line)
+    ExpectLeftValue -> "Expect a left value on line " <> int.to_string(err.line)
+    ExpectExpression ->
+      "Expect an expression on line " <> int.to_string(err.line)
+    ExpectStatement -> "Expect a statement on line " <> int.to_string(err.line)
+    ExpectLeftParentheses ->
+      "Expect an left parentheses on line " <> int.to_string(err.line)
+    ExpectRightParentheses ->
+      "Expect corresponding right parentheses \")\" after expression on line "
+      <> int.to_string(err.line)
+    ExpectRightBrace ->
+      "Expect corresponding right brace \"}\" on line "
+      <> int.to_string(err.line)
+    ExpectSemicolon ->
+      "Expect semicolon \";\" after expression on line "
+      <> int.to_string(err.line)
+    ExpectVariableName ->
+      "Expect variable name on line " <> int.to_string(err.line)
+
+    ExtraneousParenthesis ->
+      "Extraneous closing parenthesis \")\": " <> int.to_string(err.line)
+    ExtraneousSemicolon ->
+      "Extraneous semicolon \";\" after expression on line "
+      <> int.to_string(err.line)
+      <> ", please remove it"
+
+    UnexpectedToken(tok) ->
+      "Unexpected token '"
+      <> token.to_string(tok)
+      <> "' on line "
+      <> int.to_string(err.line)
+
+    InvalidAssignmentTarget ->
+      "Invalid assignment target on line" <> int.to_string(err.line)
   }
 }
