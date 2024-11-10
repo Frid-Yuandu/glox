@@ -6,7 +6,7 @@ test_name: should_not_parse_if_statement_missing_condition_test
 ---
 [
   Error(ParseError(
-    ExtraneousParenthesis,
+    ExtraneousParentheses,
     1,
   )),
 ]

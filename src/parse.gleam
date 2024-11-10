@@ -86,16 +86,17 @@ import gleam/option.{type Option, None, Some}
 import parse/error.{
   type LexicalError, type ParseError, ExpectExpression, ExpectLeftParentheses,
   ExpectLeftValue, ExpectRightParentheses, ExpectRightValue, ExpectSemicolon,
-  ExpectStatement, ExpectVariableName, ExtraneousParenthesis,
-  ExtraneousSemicolon, InvalidAssignmentTarget, LexError, LexicalError,
-  ParseError, UnexpectedToken,
+  ExpectStatement, ExpectVariableName, ExtraneousParentheses,
+  InvalidAssignmentTarget, LexError, LexicalError, ParseError, UnexpectedToken,
 }
 import parse/expr.{
   type Expr, Assign, Binary, Boolean, Grouping, LogicAnd, LogicOr, NegativeBool,
   NegativeNumber, NilLiteral, Number, String, Variable,
 }
 import parse/lexer.{type LexResult}
-import parse/stmt.{type Stmt, Block, Declaration, Expression, If, Print, While}
+import parse/stmt.{
+  type Stmt, Block, Declaration, EmptyExpression, Expression, If, Print, While,
+}
 import parse/token.{type Token, type TokenType, Token}
 import prelude.{with_ok}
 
@@ -407,8 +408,8 @@ fn expr_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
       Ok(Some(Expression(expr))),
       advance(parser),
     )
-    Some(Token(token.Semicolon, line)), None -> #(
-      Error(ParseError(ExtraneousSemicolon, line)),
+    Some(Token(token.Semicolon, _)), None -> #(
+      Ok(Some(EmptyExpression)),
       advance(parser),
     )
 
@@ -642,7 +643,7 @@ fn primary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
       }
 
     Some(Token(token.RightParen, line)) -> #(
-      Error(ParseError(ExtraneousParenthesis, line)),
+      Error(ParseError(ExtraneousParentheses, line)),
       parser,
     )
 

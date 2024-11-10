@@ -58,6 +58,8 @@ fn execute_helper(
       let output = interpreter.io.write_stdout(types.inspect_object(obj))
       execute_helper(interpreter, rest, Ok(Some(output)))
     }
+    [stmt.EmptyExpression, ..rest] ->
+      execute_helper(interpreter, rest, Ok(None))
     [Expression(exp), ..rest] -> {
       let #(rst, interpreter) = evaluate(interpreter, exp)
       case rst {
