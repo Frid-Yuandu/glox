@@ -9,8 +9,8 @@ import simplifile
 import parse
 import parse/error.{
   type ParseError, ExpectExpression, ExpectRightParentheses, ExpectRightValue,
-  ExpectSemicolon, ExpectVariableName, ExtraneousParenthesis,
-  ExtraneousSemicolon, ParseError, UnexpectedToken,
+  ExpectSemicolon, ExpectVariableName, ExtraneousParentheses, ParseError,
+  UnexpectedToken,
 }
 import parse/expr.{
   Binary, Boolean, Grouping, NegativeBool, NegativeNumber, NilLiteral, Number,
@@ -510,22 +510,8 @@ pub fn should_not_parse_missing_expression_test() {
   |> should.equal(expected_error)
 }
 
-pub fn should_not_parse_extraneous_semicolon_test() {
-  let expected_error = Error(ParseError(ExtraneousSemicolon, 1))
-  let expected_stmt = Ok(Some(stmt.Expression(Number(1.0))))
-
-  let parse_result =
-    [token.Number(1.0), token.Semicolon, token.Semicolon]
-    |> parse_wanted
-
-  should.be_true(
-    contains(parse_result, expected_error)
-    && contains(parse_result, expected_stmt),
-  )
-}
-
 pub fn should_not_parse_extraneous_parenthesis_test() {
-  let expected_error = Error(ParseError(ExtraneousParenthesis, 1))
+  let expected_error = Error(ParseError(ExtraneousParentheses, 1))
 
   let parse_result =
     [token.RightParen, token.Semicolon]

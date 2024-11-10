@@ -46,8 +46,7 @@ pub type ParseErrorType {
   ExpectRightBrace
   ExpectVariableName
 
-  ExtraneousParenthesis
-  ExtraneousSemicolon
+  ExtraneousParentheses
 
   InvalidAssignmentTarget
 
@@ -81,13 +80,13 @@ pub fn inspect_parse_error(err: ParseError) -> String {
     ExpectVariableName ->
       "Expect variable name on line " <> int.to_string(err.line)
 
-    ExtraneousParenthesis ->
+    ExtraneousParentheses ->
       "Extraneous closing parenthesis \")\": " <> int.to_string(err.line)
-    ExtraneousSemicolon ->
-      "Extraneous semicolon \";\" after expression on line "
-      <> int.to_string(err.line)
-      <> ", please remove it"
 
+    // ExtraneousSemicolon ->
+    //   "Extraneous semicolon \";\" after expression on line "
+    //   <> int.to_string(err.line)
+    //   <> ", please remove it"
     UnexpectedToken(tok) ->
       "Unexpected token '"
       <> token.to_string(tok)
