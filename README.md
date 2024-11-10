@@ -13,33 +13,37 @@ Glox aims to provide a fast, reliable, and easy-to-use implementation of the Lox
 
 ## Features
 
-- [x] Supports the full Lox language syntax
+- [x] Basic Lox language syntax support
 - [x] Includes a built-in lexer, parser, and interpreter
-- [ ] Provides a simple and intuitive API for executing Lox code
-- [ ] Highly extensible, with a modular design that makes it easy to add new features
+- [x] Provides a simple REPL for executing Lox code
+- [x] Supports basic statements: If, Block, Expression, Print, Declaration, While
+- [x] Error handling for runtime and parse errors
+- [ ] Full Lox language support (see [INSTRUCTION.md](INSTRUCTION.md) for planned features)
 
 ## Usage
 
-To use Glox, simply clone the repository and run the following commands:
+To use Glox, clone the repository and run the following commands:
 
 ```sh
-git clone https://github.com/Frid-Yuandu/glox.git
-cd glox
-gleam run
+gleam run   # Start the REPL
+
+# Or interpret a file
+gleam export erlang-shipment
+build/erlang-shipment/entrypoint.sh run /path/to/lox/file
 ```
 
-This will start the Glox interpreter in interactive mode, allowing you to execute Lox code directly.
+## Development
+
+For detailed information on the project structure, current features, and planned enhancements, please refer to the [INSTRUCTION.md](INSTRUCTION.md) file in the project root directory.
 
 ## Documentation (TODO)
 
-For more information on using Glox, including a full API reference and documentation on the Lox language, please see the [Glox documentation](https://hexdocs.pm/glox/).
+For more information on using Glox, including a full API reference and documentation on the Lox language, please see the Glox documentation.
 
 ## Contributing
 
-Glox is an open-source project, and contributions are welcome. If you're interested in helping out, please see the [CONTRIBUTING.md](CONTRIBUTING.md) file for more information.
+Glox is an open-source project, and contributions are welcome. If you're interested in helping out, please see the CONTRIBUTING.md (TODO) file for more information.
 
 ## License
 
 Glox is released under the MIT license. See the [LICENSE](LICENSE) file for more information.
-
-I hope this helps! Let me know if you have any questions or need further assistance.
