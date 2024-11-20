@@ -2,7 +2,7 @@
 version: 1.2.3
 title: error in divide by zero
 ---
-"Error(RuntimeError(
+Error(RuntimeError(
   Token(Slash, 1),
   DivideByZero,
-))"
+))

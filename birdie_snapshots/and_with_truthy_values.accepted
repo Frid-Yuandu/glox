@@ -2,4 +2,4 @@
 version: 1.2.3
 title: AND with truthy values
 ---
-"Ok(None)"
+Ok(None)

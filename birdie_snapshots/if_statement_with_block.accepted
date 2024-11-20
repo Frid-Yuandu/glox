@@ -2,4 +2,4 @@
 version: 1.2.3
 title: if statement with block
 ---
-"Ok(Some(//fn() { ... }))"
+Ok(Some(//fn() { ... }))

@@ -2,4 +2,4 @@
 version: 1.2.3
 title: true OR false (short-circuit)
 ---
-"Ok(None)"
+Ok(None)

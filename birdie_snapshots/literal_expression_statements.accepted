@@ -2,4 +2,4 @@
 version: 1.2.3
 title: literal expression statements
 ---
-"Ok(None)"
+Ok(None)
