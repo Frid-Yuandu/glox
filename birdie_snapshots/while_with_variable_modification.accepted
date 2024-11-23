@@ -2,4 +2,13 @@
 version: 1.2.3
 title: while with variable modification
 ---
-Ok(None)
+#(
+  Ok(Pure(Num(0.0))),
+  Environment(
+    dict.from_list([
+      #("n", Num(0.0)),
+      #("sum", Num(6.0)),
+    ]),
+    None,
+  ),
+)

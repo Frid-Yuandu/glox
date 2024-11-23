@@ -2,4 +2,7 @@
 version: 1.2.3
 title: if statement with block
 ---
-Ok(Some(//fn() { ... }))
+#(
+  Ok(Effect(["first", "second"], None)),
+  Environment(dict.from_list([]), None),
+)

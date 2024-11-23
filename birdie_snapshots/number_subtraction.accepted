@@ -1,8 +1,8 @@
 ---
 version: 1.2.3
-title: non-empty gourping expression
+title: number subtraction
 ---
 #(
-  Ok(Pure(Num(7.0))),
+  Ok(Pure(Num(4.0))),
   Environment(dict.from_list([]), None),
 )

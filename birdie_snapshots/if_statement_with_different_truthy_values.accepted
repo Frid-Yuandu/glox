@@ -2,4 +2,7 @@
 version: 1.2.3
 title: if statement with different truthy values
 ---
-Ok(Some(//fn() { ... }))
+#(
+  Ok(Effect(["nil is falsy"], None)),
+  Environment(dict.from_list([]), None),
+)

@@ -1,8 +1,8 @@
 ---
 version: 1.2.3
-title: non-empty gourping expression
+title: less equal comparison
 ---
 #(
-  Ok(Pure(Num(7.0))),
+  Ok(Pure(BoolVal(True))),
   Environment(dict.from_list([]), None),
 )

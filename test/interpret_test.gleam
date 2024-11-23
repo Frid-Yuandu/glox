@@ -1,156 +1,107 @@
-import birdie
-import gleam/io
 import gleam/list
-import gleam/option.{None, Some}
+import gleam/option
 import gleam/result
-import parse
-import pprint
 
-import interpreter.{type Interpreter, Interpreter}
+import interpreter.{type Interpreter, Effect, Interpreter, Pure, Void}
 import interpreter/environment
 import interpreter/io_controller
-import parse/expr
-import parse/stmt
-import parse/token.{Token}
+import parse
 
-pub fn should_interpret_literal_test() {
-  let given_stmt = [
-    stmt.Expression(expr.String("test\tstring")),
-    stmt.Expression(expr.Boolean(False)),
-    stmt.Expression(expr.Number(1.0)),
-    stmt.Expression(expr.NilLiteral),
-  ]
+import birdie
+import pprint
 
-  given_stmt
-  |> execute_case
-  |> snapshot(title: "literal expression statements")
+// Literal Tests
+pub fn should_interpret_string_literal_test() {
+  "\"test\\tstring\";"
+  |> execute_from_source(title: "string literal expression")
 }
 
-// test unary expressions
-
-pub fn should_interpret_apply_bang_on_false_as_true_test() {
-  let given_stmt = [
-    stmt.Expression(expr.NegativeBool(
-      token: Token(token.Bang, 1),
-      value: expr.Boolean(False),
-    )),
-    stmt.Expression(expr.NegativeBool(
-      token: Token(token.Bang, 1),
-      value: expr.NilLiteral,
-    )),
-    stmt.Expression(expr.NegativeBool(
-      token: Token(token.Bang, 1),
-      value: expr.Number(23_333.0),
-    )),
-  ]
-
-  given_stmt
-  |> execute_case
-  |> snapshot("unary expression statements")
+pub fn should_interpret_boolean_literal_test() {
+  "false;"
+  |> execute_from_source(title: "boolean literal expression")
 }
 
-// test binary expressions
+pub fn should_interpret_number_literal_test() {
+  "1.0;"
+  |> execute_from_source(title: "number literal expression")
+}
 
-pub fn should_interpret_binary_calculations_test() {
-  let given_stmt = [
-    stmt.Expression(expr.Binary(
-      expr.Number(3.0),
-      Token(token.Plus, 1),
-      expr.Number(4.0),
-    )),
-    stmt.Expression(expr.Binary(
-      expr.String("foo"),
-      Token(token.Plus, 1),
-      expr.String("bar"),
-    )),
-    stmt.Expression(expr.Binary(
-      expr.Number(7.0),
-      Token(token.Minus, 1),
-      expr.Number(3.0),
-    )),
-    stmt.Expression(expr.Binary(
-      expr.Number(3.0),
-      Token(token.Star, 1),
-      expr.Number(2.0),
-    )),
-    stmt.Expression(expr.Binary(
-      expr.Number(10.0),
-      Token(token.Slash, 1),
-      expr.Number(2.0),
-    )),
-  ]
+pub fn should_interpret_nil_literal_test() {
+  "nil;"
+  |> execute_from_source(title: "nil literal expression")
+}
 
-  given_stmt
-  |> execute_case
-  |> snapshot("binary calculations expression statements")
+// Unary Expression Tests
+pub fn should_interpret_bang_on_false_test() {
+  "!false;"
+  |> execute_from_source(title: "bang on false")
+}
+
+pub fn should_interpret_bang_on_nil_test() {
+  "!nil;"
+  |> execute_from_source(title: "bang on nil")
+}
+
+pub fn should_interpret_bang_on_number_test() {
+  "!23333.0;"
+  |> execute_from_source(title: "bang on number")
+}
+
+// Binary Calculation Tests
+pub fn should_interpret_number_addition_test() {
+  "3.0 + 4.0;"
+  |> execute_from_source(title: "number addition")
+}
+
+pub fn should_interpret_string_concatenation_test() {
+  "\"foo\" + \"bar\";"
+  |> execute_from_source(title: "string concatenation")
+}
+
+pub fn should_interpret_number_subtraction_test() {
+  "7.0 - 3.0;"
+  |> execute_from_source(title: "number subtraction")
+}
+
+pub fn should_interpret_number_multiplication_test() {
+  "3.0 * 2.0;"
+  |> execute_from_source(title: "number multiplication")
+}
+
+pub fn should_interpret_number_division_test() {
+  "10.0 / 2.0;"
+  |> execute_from_source(title: "number division")
+}
+
+// Comparison Tests
+pub fn should_interpret_greater_than_test() {
+  "10.0 > 5.0;"
+  |> execute_from_source(title: "greater than comparison")
+}
+
+pub fn should_interpret_greater_equal_test() {
+  "5.0 >= 5.0;"
+  |> execute_from_source(title: "greater equal comparison")
+}
+
+pub fn should_interpret_less_than_test() {
+  "2.0 < 5.0;"
+  |> execute_from_source(title: "less than comparison")
+}
+
+pub fn should_interpret_less_equal_test() {
+  "5.0 <= 5.0;"
+  |> execute_from_source(title: "less equal comparison")
+}
+
+pub fn should_interpret_not_equal_test() {
+  "5.0 != 3.0;"
+  |> execute_from_source(title: "not equal comparison")
 }
 
 pub fn should_interpret_equal_equal_test() {
-  let given_stmt = [
-    stmt.Expression(expr.Binary(
-      expr.Number(10.0),
-      Token(token.Greater, 1),
-      expr.Number(5.0),
-    )),
-    stmt.Expression(expr.Binary(
-      expr.Number(5.0),
-      Token(token.GreaterEqual, 1),
-      expr.Number(5.0),
-    )),
-    stmt.Expression(expr.Binary(
-      expr.Number(2.0),
-      Token(token.Less, 1),
-      expr.Number(5.0),
-    )),
-    stmt.Expression(expr.Binary(
-      expr.Number(5.0),
-      Token(token.LessEqual, 1),
-      expr.Number(5.0),
-    )),
-    stmt.Expression(expr.Binary(
-      expr.Number(5.0),
-      Token(token.NotEqual, 1),
-      expr.Number(3.0),
-    )),
-    stmt.Expression(expr.Binary(
-      expr.Number(5.0),
-      Token(token.EqualEqual, 1),
-      expr.Number(5.0),
-    )),
-    stmt.Expression(expr.Binary(
-      expr.Number(10.0),
-      Token(token.Greater, 1),
-      expr.Number(5.0),
-    )),
-    stmt.Expression(expr.Binary(
-      expr.Number(5.0),
-      Token(token.GreaterEqual, 1),
-      expr.Number(5.0),
-    )),
-    stmt.Expression(expr.Binary(
-      expr.Number(2.0),
-      Token(token.Less, 1),
-      expr.Number(5.0),
-    )),
-    stmt.Expression(expr.Binary(
-      expr.Number(5.0),
-      Token(token.LessEqual, 1),
-      expr.Number(5.0),
-    )),
-    stmt.Expression(expr.Binary(
-      expr.Number(5.0),
-      Token(token.NotEqual, 1),
-      expr.Number(3.0),
-    )),
-    stmt.Expression(expr.Binary(
-      expr.Number(5.0),
-      Token(token.EqualEqual, 1),
-      expr.Number(5.0),
-    )),
-  ]
-
-  "5 == 5;"
-  |> execute_from_source(title: "equalities expression statements")
+  "5.0 == 5.0;"
+  |> execute_from_source(title: "equal equal comparison")
 }
 
 // error cases in binary expressions
@@ -392,20 +343,35 @@ fn execute_from_source(source source, title title) {
     |> parse.parse
     |> result.partition
 
-  let #(interpret_rst, _) =
+  let #(rst, interpreter) =
     stmts
     |> option.values
     |> list.reverse
     |> interpreter.execute(new_test_interpreter(), _)
 
-  snapshot(interpret_rst, title: title)
+  #(reveal_effect(rst), interpreter.env)
+  |> snapshot(title: title)
 }
 
-fn execute_case(statement) {
-  let #(rst, _) =
-    new_test_interpreter()
-    |> interpreter.execute(statement)
-  rst
+fn reveal_effect(
+  result: interpreter.ExecuteResult(fn() -> String),
+) -> interpreter.ExecuteResult(String) {
+  case result {
+    Error(err) -> Error(err)
+    Ok(value) ->
+      case value {
+        Void -> Void
+        Pure(obj) -> Pure(obj)
+        Effect(side_effect:, value:) ->
+          Effect(
+            side_effect: side_effect
+              |> list.map(fn(fun) { fun() })
+              |> list.reverse,
+            value:,
+          )
+      }
+      |> Ok
+  }
 }
 
 fn new_test_interpreter() -> Interpreter(fn() -> String) {

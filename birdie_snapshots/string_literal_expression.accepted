@@ -1,8 +1,8 @@
 ---
 version: 1.2.3
-title: non-empty gourping expression
+title: string literal expression
 ---
 #(
-  Ok(Pure(Num(7.0))),
+  Ok(Pure(Str("test\tstring"))),
   Environment(dict.from_list([]), None),
 )

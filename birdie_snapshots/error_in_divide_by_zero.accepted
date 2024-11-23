@@ -2,7 +2,10 @@
 version: 1.2.3
 title: error in divide by zero
 ---
-Error(RuntimeError(
-  Token(Slash, 1),
-  DivideByZero,
-))
+#(
+  Error(RuntimeError(
+    Token(Slash, 1),
+    DivideByZero,
+  )),
+  Environment(dict.from_list([]), None),
+)

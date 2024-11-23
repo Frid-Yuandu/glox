@@ -2,4 +2,13 @@
 version: 1.2.3
 title: while with logical condition
 ---
-Ok(None)
+#(
+  Ok(Effect(
+    ["0.0", "1.0"],
+    Some(Num(2.0)),
+  )),
+  Environment(
+    dict.from_list([#("x", Num(2.0))]),
+    None,
+  ),
+)

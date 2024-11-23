@@ -2,4 +2,7 @@
 version: 1.2.3
 title: AND-OR combination
 ---
-Ok(None)
+#(
+  Ok(Pure(BoolVal(True))),
+  Environment(dict.from_list([]), None),
+)

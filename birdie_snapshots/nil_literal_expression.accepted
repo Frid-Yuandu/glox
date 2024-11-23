@@ -1,8 +1,8 @@
 ---
 version: 1.2.3
-title: non-empty gourping expression
+title: nil literal expression
 ---
 #(
-  Ok(Pure(Num(7.0))),
+  Ok(Pure(NilVal)),
   Environment(dict.from_list([]), None),
 )

@@ -2,4 +2,7 @@
 version: 1.2.3
 title: if statement with else branch
 ---
-Ok(Some(//fn() { ... }))
+#(
+  Ok(Effect(["else"], None)),
+  Environment(dict.from_list([]), None),
+)
