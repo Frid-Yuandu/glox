@@ -1,0 +1,7 @@
+---
+version: 1.2.3
+title: error in parse for statement missing semicolons
+file: ./test/parser_test.gleam
+test_name: should_not_parse_for_statement_missing_semicolons_test
+---
+[Error(ParseError(ExpectSemicolon, 1))]

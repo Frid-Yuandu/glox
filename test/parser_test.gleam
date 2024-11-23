@@ -448,11 +448,10 @@ pub fn should_not_parse_var_declaration_missing_initializer_expression_test() {
 // parse error
 
 pub fn should_not_parse_unexpected_token_test() {
-  let expected_error = wrap_error(ParseError(UnexpectedToken(token.Plus), 1))
-
   [token.Plus, token.Semicolon]
   |> parse_wanted
-  |> should.equal(expected_error)
+  |> pprint.format
+  |> birdie.snap(title: "should not parse unexpected token")
 }
 
 pub fn should_not_parse_missing_semicolon_test() {
@@ -904,6 +903,289 @@ pub fn should_not_parse_while_statement_with_invalid_condition_test() {
   |> parse_wanted
   |> pprint.format
   |> birdie.snap(title: "error in parse invalid condition in while statement")
+}
+
+// parse for statement
+
+pub fn should_parse_for_statement_test() {
+  let wanted = [
+    Ok(
+      Some(
+        stmt.Block([
+          stmt.Declaration(
+            wrap_token_type(token.Identifier("i")),
+            Some(Number(0.0)),
+          ),
+          stmt.While(
+            Binary(
+              expr.Variable(wrap_token_type(token.Identifier("i"))),
+              wrap_token_type(token.Less),
+              Number(10.0),
+            ),
+            stmt.Block([
+              stmt.Print(expr.Variable(wrap_token_type(token.Identifier("i")))),
+              stmt.Expression(expr.Assign(
+                wrap_token_type(token.Identifier("i")),
+                Binary(
+                  expr.Variable(wrap_token_type(token.Identifier("i"))),
+                  wrap_token_type(token.Plus),
+                  Number(1.0),
+                ),
+              )),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+  ]
+
+  [
+    token.For,
+    token.LeftParen,
+    token.Var,
+    token.Identifier("i"),
+    token.Equal,
+    token.Number(0.0),
+    token.Semicolon,
+    token.Identifier("i"),
+    token.Less,
+    token.Number(10.0),
+    token.Semicolon,
+    token.Identifier("i"),
+    token.Equal,
+    token.Identifier("i"),
+    token.Plus,
+    token.Number(1.0),
+    token.RightParen,
+    token.Print,
+    token.Identifier("i"),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_parse_for_statement_without_initializer_test() {
+  let wanted = [
+    Ok(
+      Some(
+        stmt.Block([
+          stmt.EmptyExpression,
+          stmt.While(
+            Binary(
+              expr.Variable(wrap_token_type(token.Identifier("i"))),
+              wrap_token_type(token.Less),
+              Number(10.0),
+            ),
+            stmt.Block([
+              stmt.Print(Number(1.0)),
+              stmt.Expression(expr.Assign(
+                wrap_token_type(token.Identifier("i")),
+                Binary(
+                  expr.Variable(wrap_token_type(token.Identifier("i"))),
+                  wrap_token_type(token.Plus),
+                  Number(1.0),
+                ),
+              )),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+  ]
+
+  [
+    token.For,
+    token.LeftParen,
+    token.Semicolon,
+    token.Identifier("i"),
+    token.Less,
+    token.Number(10.0),
+    token.Semicolon,
+    token.Identifier("i"),
+    token.Equal,
+    token.Identifier("i"),
+    token.Plus,
+    token.Number(1.0),
+    token.RightParen,
+    token.Print,
+    token.Number(1.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_parse_for_statement_without_condition_test() {
+  let wanted = [
+    Ok(
+      Some(
+        stmt.Block([
+          stmt.Declaration(
+            wrap_token_type(token.Identifier("i")),
+            Some(Number(0.0)),
+          ),
+          stmt.While(
+            Boolean(True),
+            stmt.Block([
+              stmt.Print(Number(1.0)),
+              stmt.Expression(expr.Assign(
+                wrap_token_type(token.Identifier("i")),
+                Binary(
+                  expr.Variable(wrap_token_type(token.Identifier("i"))),
+                  wrap_token_type(token.Plus),
+                  Number(1.0),
+                ),
+              )),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+  ]
+
+  [
+    token.For,
+    token.LeftParen,
+    token.Var,
+    token.Identifier("i"),
+    token.Equal,
+    token.Number(0.0),
+    token.Semicolon,
+    token.Semicolon,
+    token.Identifier("i"),
+    token.Equal,
+    token.Identifier("i"),
+    token.Plus,
+    token.Number(1.0),
+    token.RightParen,
+    token.Print,
+    token.Number(1.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_parse_for_statement_without_increment_test() {
+  let wanted = [
+    Ok(
+      Some(
+        stmt.Block([
+          stmt.Declaration(
+            wrap_token_type(token.Identifier("i")),
+            Some(Number(0.0)),
+          ),
+          stmt.While(
+            Binary(
+              expr.Variable(wrap_token_type(token.Identifier("i"))),
+              wrap_token_type(token.Less),
+              Number(10.0),
+            ),
+            stmt.Block([stmt.Print(Number(1.0)), stmt.EmptyExpression]),
+          ),
+        ]),
+      ),
+    ),
+  ]
+
+  [
+    token.For,
+    token.LeftParen,
+    token.Var,
+    token.Identifier("i"),
+    token.Equal,
+    token.Number(0.0),
+    token.Semicolon,
+    token.Identifier("i"),
+    token.Less,
+    token.Number(10.0),
+    token.Semicolon,
+    token.RightParen,
+    token.Print,
+    token.Number(1.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_parse_empty_for_statement_test() {
+  let wanted = [
+    Ok(
+      Some(
+        stmt.Block([
+          stmt.EmptyExpression,
+          stmt.While(
+            Boolean(True),
+            stmt.Block([stmt.EmptyExpression, stmt.EmptyExpression]),
+          ),
+        ]),
+      ),
+    ),
+  ]
+
+  [
+    token.For,
+    token.LeftParen,
+    token.Semicolon,
+    token.Semicolon,
+    token.RightParen,
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> should.equal(wanted)
+}
+
+pub fn should_not_parse_for_statement_missing_left_paren_test() {
+  [
+    token.For,
+    token.Var,
+    token.Identifier("i"),
+    token.Equal,
+    token.Number(0.0),
+    token.Semicolon,
+    token.RightParen,
+  ]
+  |> parse_wanted
+  |> pprint.format
+  |> birdie.snap(title: "error in parse for statement missing left parentheses")
+}
+
+pub fn should_not_parse_for_statement_missing_right_paren_test() {
+  [
+    token.For,
+    token.LeftParen,
+    token.Var,
+    token.Identifier("i"),
+    token.Equal,
+    token.Number(0.0),
+    token.Semicolon,
+    token.Semicolon,
+    token.Print,
+    token.Number(1.0),
+    token.Semicolon,
+  ]
+  |> parse_wanted
+  |> pprint.format
+  |> birdie.snap(
+    title: "error in parse for statement missing right parentheses",
+  )
+}
+
+pub fn should_not_parse_for_statement_missing_semicolons_test() {
+  [
+    token.For,
+    token.LeftParen,
+    token.Var,
+    token.Identifier("i"),
+    token.Equal,
+    token.Number(0.0),
+    token.RightParen,
+  ]
+  |> parse_wanted
+  |> pprint.format
+  |> birdie.snap(title: "error in parse for statement missing semicolons")
 }
 
 // helper
