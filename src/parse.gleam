@@ -710,11 +710,6 @@ fn primary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
 
     Some(Token(token.Semicolon, _)) | None -> #(Ok(None), parser)
     _ -> #(Ok(None), parser)
-
-    Some(t) -> #(
-      Error(ParseError(UnexpectedToken(t.type_), t.line)),
-      advance(parser),
-    )
   }
 }
 

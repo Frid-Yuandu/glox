@@ -10,8 +10,8 @@ import parse
 import parse/error.{
   type ParseError, ExpectExpression, ExpectRightParentheses, ExpectRightValue,
   ExpectSemicolon, ExpectVariableName, ExtraneousParentheses, ParseError,
-  UnexpectedToken,
 }
+
 import parse/expr.{
   Binary, Boolean, Grouping, NegativeBool, NegativeNumber, NilLiteral, Number,
 }
