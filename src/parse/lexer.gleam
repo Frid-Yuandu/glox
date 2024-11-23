@@ -213,6 +213,8 @@ fn to_keyword(char) -> Option(TokenType) {
     "true" -> Some(token.True)
     "var" -> Some(token.Var)
     "while" -> Some(token.While)
+    "break" -> Some(token.Break)
+    "continue" -> Some(token.Continue)
     _ -> None
   }
 }

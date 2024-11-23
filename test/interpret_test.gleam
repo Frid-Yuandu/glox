@@ -2,7 +2,7 @@ import gleam/list
 import gleam/option
 import gleam/result
 
-import interpreter.{type Interpreter, Effect, Interpreter, Pure, Void}
+import interpreter.{type Interpreter, Break, Effect, Interpreter, Pure, Void}
 import interpreter/environment
 import interpreter/io_controller
 import parse
@@ -294,36 +294,10 @@ pub fn should_interpret_nested_while_loops_test() {
 }
 
 // TODO: this case is not propriate, because no break statement is implemented.
-// pub fn should_interpret_while_with_break_condition_test() {
-//   let given_stmt = [
-//     // var x = 0; while (true) { print x; x = x + 1; if (x > 2) break; }
-//     stmt.Declaration(Token(token.Identifier("x"), 1), Some(expr.Number(0.0))),
-//     stmt.While(
-//       condition: expr.Boolean(True),
-//       body: stmt.Block([
-//         stmt.Print(expr.Variable(Token(token.Identifier("x"), 1))),
-//         stmt.Expression(expr.Assign(
-//           Token(token.Identifier("x"), 1),
-//           expr.Binary(
-//             expr.Variable(Token(token.Identifier("x"), 1)),
-//             Token(token.Plus, 1),
-//             expr.Number(1.0),
-//           ),
-//         )),
-//         stmt.If(
-//           condition: expr.Binary(
-//             expr.Variable(Token(token.Identifier("x"), 1)),
-//             Token(token.Greater, 1),
-//             expr.Number(2.0),
-//           ),
-//           then_branch: stmt.Expression(expr.Boolean(False)),
-//           else_branch: None,
-//         ),
-//       ]),
-//     ),
-//   ]
-//   snapshot( "while with break condition")
-// }
+pub fn should_interpret_while_with_break_condition_test() {
+  "var x = 0; while (true) { print x; x = x + 1; if (x > 2) break; }"
+  |> execute_from_source(title: "while with break condition")
+}
 
 pub fn should_interpret_while_with_logical_condition_test() {
   "var x = 0; while (x < 2 and x >= 0) { print x; x = x + 1; }"
@@ -360,6 +334,7 @@ fn reveal_effect(
     Error(err) -> Error(err)
     Ok(value) ->
       case value {
+        Break -> Break
         Void -> Void
         Pure(obj) -> Pure(obj)
         Effect(side_effect:, value:) ->

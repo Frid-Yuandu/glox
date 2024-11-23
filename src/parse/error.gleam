@@ -50,6 +50,8 @@ pub type ParseErrorType {
 
   InvalidAssignmentTarget
 
+  BreakNotInLoop
+
   UnexpectedToken(TokenType)
 }
 
@@ -83,10 +85,6 @@ pub fn inspect_parse_error(err: ParseError) -> String {
     ExtraneousParentheses ->
       "Extraneous closing parenthesis \")\": " <> int.to_string(err.line)
 
-    // ExtraneousSemicolon ->
-    //   "Extraneous semicolon \";\" after expression on line "
-    //   <> int.to_string(err.line)
-    //   <> ", please remove it"
     UnexpectedToken(tok) ->
       "Unexpected token '"
       <> token.to_string(tok)
@@ -95,5 +93,8 @@ pub fn inspect_parse_error(err: ParseError) -> String {
 
     InvalidAssignmentTarget ->
       "Invalid assignment target on line" <> int.to_string(err.line)
+
+    BreakNotInLoop ->
+      "Break is outside of loop on line " <> int.to_string(err.line)
   }
 }

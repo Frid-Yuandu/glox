@@ -52,6 +52,8 @@ pub type TokenType {
   True
   Var
   While
+  Break
+  Continue
 
   EOF
 }
@@ -106,6 +108,8 @@ pub fn token_type_string(token: TokenType) -> String {
     True -> "True"
     Var -> "Var"
     While -> "While"
+    Break -> "Break"
+    Continue -> "Continue"
 
     EOF -> "EOF"
   }
@@ -154,6 +158,8 @@ pub fn to_lexeme(token: TokenType) -> String {
     True -> "true"
     Var -> "var"
     While -> "while"
+    Break -> "break"
+    Continue -> "continue"
 
     EOF -> ""
   }

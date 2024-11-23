@@ -84,10 +84,11 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 
 import parse/error.{
-  type LexicalError, type ParseError, ExpectExpression, ExpectLeftParentheses,
-  ExpectLeftValue, ExpectRightParentheses, ExpectRightValue, ExpectSemicolon,
-  ExpectStatement, ExpectVariableName, ExtraneousParentheses,
-  InvalidAssignmentTarget, LexError, LexicalError, ParseError, UnexpectedToken,
+  type LexicalError, type ParseError, BreakNotInLoop, ExpectExpression,
+  ExpectLeftParentheses, ExpectLeftValue, ExpectRightParentheses,
+  ExpectRightValue, ExpectSemicolon, ExpectStatement, ExpectVariableName,
+  ExtraneousParentheses, InvalidAssignmentTarget, LexError, LexicalError,
+  ParseError,
 }
 import parse/expr.{
   type Expr, Assign, Binary, Boolean, Grouping, LogicAnd, LogicOr, NegativeBool,
@@ -95,7 +96,8 @@ import parse/expr.{
 }
 import parse/lexer.{type LexResult}
 import parse/stmt.{
-  type Stmt, Block, Declaration, EmptyExpression, Expression, If, Print, While,
+  type Stmt, Block, Break, Declaration, EmptyExpression, Expression, If, Print,
+  While,
 }
 import parse/token.{type Token, type TokenType, Token}
 import prelude.{ensure_exist, with_ok}
@@ -106,6 +108,7 @@ pub type Parser {
     lex_errors: List(LexicalError),
     tok0: Option(Token),
     tok1: Option(Token),
+    loop_depth: Int,
   )
 }
 
@@ -114,7 +117,7 @@ pub type Result(t) =
   gleam.Result(t, ParseError)
 
 pub fn new(tokens: Iterator(LexResult)) -> Parser {
-  Parser(tokens:, lex_errors: [], tok0: None, tok1: None)
+  Parser(tokens:, lex_errors: [], tok0: None, tok1: None, loop_depth: 0)
   |> advance
   |> advance
 }
@@ -136,6 +139,18 @@ fn advance(parser: Parser) -> Parser {
       )
       |> advance
     iterator.Done -> Parser(..parser, tok0: parser.tok1, tok1: None)
+  }
+}
+
+fn begin_loop(parser: Parser) -> Parser {
+  Parser(..parser, loop_depth: parser.loop_depth + 1)
+}
+
+fn end_loop(parser: Parser) -> Parser {
+  case parser {
+    Parser(loop_depth:, ..) if loop_depth > 0 ->
+      Parser(..parser, loop_depth: loop_depth - 1)
+    _ -> panic as "Call end loop with no loop depth"
   }
 }
 
@@ -221,11 +236,31 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
 fn statement(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   case parser.tok0 {
     Some(Token(token.If, line)) -> if_stmt(advance(parser), line)
-    Some(Token(token.For, line)) -> for_stmt(advance(parser), line)
-    Some(Token(token.While, line)) -> while_stmt(advance(parser), line)
+    Some(Token(token.For, line)) ->
+      parser |> advance |> begin_loop |> for_stmt(line)
+    Some(Token(token.While, line)) ->
+      parser |> advance |> begin_loop |> while_stmt(line)
     Some(Token(token.Print, line)) -> print_stmt(advance(parser), line)
     Some(Token(token.LeftBrace, line)) -> block(advance(parser), line)
+    Some(Token(token.Break, line)) -> break_stmt(advance(parser), line)
     _ -> expr_stmt(parser)
+  }
+}
+
+fn break_stmt(
+  parser: Parser,
+  start_at line: Int,
+) -> #(Result(Option(Stmt)), Parser) {
+  case parser.tok0, parser.loop_depth {
+    Some(Token(token.Semicolon, _)), n if n > 0 -> #(
+      Ok(Some(Break)),
+      advance(parser),
+    )
+    Some(Token(token.Semicolon, _)), _ -> #(
+      Error(ParseError(BreakNotInLoop, line)),
+      parser,
+    )
+    _, _ -> #(Error(ParseError(ExpectSemicolon, line)), parser)
   }
 }
 
@@ -274,79 +309,85 @@ fn for_stmt(
   parser: Parser,
   start_at line: Int,
 ) -> #(Result(Option(Stmt)), Parser) {
-  use lp, parser <- match(
-    parser:,
-    type_of: token.LeftParen,
-    otherwise: Error(ParseError(ExpectLeftParentheses, line)),
-  )
-
-  // parse initializer statement
-  let #(init_rst, parser) = case parser.tok0 {
-    Some(Token(token.Semicolon, _)) -> #(
-      Ok(Some(EmptyExpression)),
-      advance(parser),
+  let #(rst, parser) = {
+    use lp, parser <- match(
+      parser:,
+      type_of: token.LeftParen,
+      otherwise: Error(ParseError(ExpectLeftParentheses, line)),
     )
-    Some(Token(token.Var, _)) -> var_declaration(parser)
-    _ -> expr_stmt(parser)
+
+    // parse initializer statement
+    let #(init_rst, parser) = case parser.tok0 {
+      Some(Token(token.Semicolon, _)) -> #(
+        Ok(Some(EmptyExpression)),
+        advance(parser),
+      )
+      Some(Token(token.Var, _)) -> var_declaration(parser)
+      _ -> expr_stmt(parser)
+    }
+    use maybe_init <- with_ok(in: init_rst, processer: parser)
+    use initializer <- ensure_exist(
+      in: maybe_init,
+      otherwise: Error(ParseError(ExpectStatement, lp.line)),
+      processer: parser,
+    )
+
+    // parse condition expression then consume semicolon
+    let #(cond_rst, parser) = expression(parser)
+    use maybe_cond <- with_ok(in: cond_rst, processer: parser)
+    let cond = option.unwrap(maybe_cond, Boolean(True))
+    use cond_end_semi, parser <- match(
+      parser:,
+      type_of: token.Semicolon,
+      otherwise: Error(ParseError(ExpectSemicolon, lp.line)),
+    )
+
+    // parse increment expression then consume right parentheses
+    let #(inc_rst, parser) = case parser.tok0 {
+      Some(Token(token.RightParen, _)) -> #(Ok(None), parser)
+      _ -> expression(parser)
+    }
+    use maybe_inc <- with_ok(in: inc_rst, processer: parser)
+    let increment =
+      maybe_inc |> option.map(Expression) |> option.unwrap(EmptyExpression)
+    use _rp, parser <- match(
+      parser:,
+      type_of: token.RightParen,
+      otherwise: Error(ParseError(ExpectRightParentheses, cond_end_semi.line)),
+    )
+
+    let #(body_rst, parser) = statement(parser)
+    use maybe_body <- with_ok(in: body_rst, processer: parser)
+    let body_with_inc =
+      option.values([maybe_body]) |> list.append([increment]) |> Block
+
+    let loop = While(condition: cond, body: body_with_inc)
+    let for_loop_with_init = Block([initializer, loop])
+
+    #(Ok(Some(for_loop_with_init)), parser)
   }
-  use maybe_init <- with_ok(in: init_rst, processer: parser)
-  use initializer <- ensure_exist(
-    in: maybe_init,
-    otherwise: Error(ParseError(ExpectStatement, lp.line)),
-    processer: parser,
-  )
-
-  // parse condition expression then consume semicolon
-  let #(cond_rst, parser) = expression(parser)
-  use maybe_cond <- with_ok(in: cond_rst, processer: parser)
-  let cond = option.unwrap(maybe_cond, Boolean(True))
-  use cond_end_semi, parser <- match(
-    parser:,
-    type_of: token.Semicolon,
-    otherwise: Error(ParseError(ExpectSemicolon, lp.line)),
-  )
-
-  // parse increment expression then consume right parentheses
-  let #(inc_rst, parser) = case parser.tok0 {
-    Some(Token(token.RightParen, _)) -> #(Ok(None), parser)
-    _ -> expression(parser)
-  }
-  use maybe_inc <- with_ok(in: inc_rst, processer: parser)
-  let increment =
-    maybe_inc |> option.map(Expression) |> option.unwrap(EmptyExpression)
-  use _rp, parser <- match(
-    parser:,
-    type_of: token.RightParen,
-    otherwise: Error(ParseError(ExpectRightParentheses, cond_end_semi.line)),
-  )
-
-  let #(body_rst, parser) = statement(parser)
-  use maybe_body <- with_ok(in: body_rst, processer: parser)
-  let body_with_inc =
-    option.values([maybe_body]) |> list.append([increment]) |> Block
-
-  let loop = While(condition: cond, body: body_with_inc)
-  let for_loop_with_init = Block([initializer, loop])
-
-  #(Ok(Some(for_loop_with_init)), parser)
+  #(rst, end_loop(parser))
 }
 
 fn while_stmt(
   parser: Parser,
   start_at line: Int,
 ) -> #(Result(Option(Stmt)), Parser) {
-  use condition, end_line, parser <- ensure_condition_valid_return_with_pos(
-    parser,
-    start_at: line,
-  )
+  let #(rst, parser) = {
+    use condition, end_line, parser <- ensure_condition_valid_return_with_pos(
+      parser,
+      start_at: line,
+    )
 
-  let #(body_rst, parser) = statement(parser)
-  use maybe_body <- with_ok(in: body_rst, processer: parser)
+    let #(body_rst, parser) = statement(parser)
+    use maybe_body <- with_ok(in: body_rst, processer: parser)
 
-  case maybe_body {
-    Some(body) -> #(Ok(Some(While(condition:, body:))), parser)
-    None -> #(Error(ParseError(ExpectStatement, end_line)), parser)
+    case maybe_body {
+      Some(body) -> #(Ok(Some(While(condition:, body:))), parser)
+      None -> #(Error(ParseError(ExpectStatement, end_line)), parser)
+    }
   }
+  #(rst, end_loop(parser))
 }
 
 fn ensure_condition_valid_return_with_pos(

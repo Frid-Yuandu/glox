@@ -62,6 +62,7 @@ pub type EvalResult =
 /// effect: The type of side effects produced during execution
 pub type Executed(effect) {
   Void
+  Break
   Pure(Object)
   Effect(side_effect: List(effect), value: Option(Object))
 }
@@ -94,8 +95,8 @@ fn execute_helper(
 
       let output = interpreter.io.write_stdout(types.inspect_object(obj))
       let prev_eft = case last_result {
-        Void | Pure(_) -> []
         Effect(side_effect:, ..) -> side_effect
+        _ -> []
       }
 
       execute_helper(
@@ -106,8 +107,8 @@ fn execute_helper(
     }
     [stmt.EmptyExpression, ..rest] -> {
       let result = case last_result {
-        Void | Pure(_) -> Void
         Effect(side_effect:, ..) -> Effect(side_effect:, value: None)
+        _ -> Void
       }
       execute_helper(interpreter, rest, result)
     }
@@ -116,8 +117,8 @@ fn execute_helper(
       case rst {
         Ok(obj) -> {
           let result = case last_result {
-            Void | Pure(_) -> Pure(obj)
             Effect(side_effect:, ..) -> Effect(side_effect:, value: Some(obj))
+            _ -> Pure(obj)
           }
           execute_helper(interpreter, rest, result)
         }
@@ -138,7 +139,7 @@ fn execute_helper(
     [Block(statements), ..rest] -> {
       let #(rst, interpreter) = execute_block(interpreter, statements)
       case rst {
-        Error(_) -> #(rst, interpreter)
+        Error(_) | Ok(Break) -> #(rst, interpreter)
         Ok(value) -> execute_helper(interpreter, rest, value)
       }
     }
@@ -147,7 +148,7 @@ fn execute_helper(
       let #(rst, interpreter) =
         execute_if(interpreter, cond, then_branch, maybe_else)
       case rst {
-        Error(_) -> #(rst, interpreter)
+        Error(_) | Ok(Break) -> #(rst, interpreter)
         Ok(value) -> execute_helper(interpreter, rest, value)
       }
     }
@@ -158,6 +159,9 @@ fn execute_helper(
         Ok(value) -> execute_helper(interpreter, rest, value)
       }
     }
+    [stmt.Break, ..] -> #(Ok(Break), interpreter)
+    // TODO: implement me
+    [stmt.Continue, ..] -> todo
   }
 }
 
@@ -205,23 +209,29 @@ fn execute_while(
     True -> {
       let #(rst, interpreter) = execute_helper(interpreter, [body], last_result)
       use execute_value <- with_ok(in: rst, processer: interpreter)
-      let result = case execute_value, last_result {
-        Void, Effect(..) -> Effect(..last_result, value: None)
-        Pure(value), Effect(..) -> Effect(..last_result, value: Some(value))
-        Effect(..), Effect(..) ->
-          Effect(
-            ..execute_value,
-            side_effect: list.flatten([
-              execute_value.side_effect,
-              last_result.side_effect,
-            ]),
-          )
-        Effect(..), Void | Effect(..), Pure(..) -> execute_value
-        Pure(_), Pure(_) | Pure(_), Void -> execute_value
-        Void, Pure(_) | Void, Void -> last_result
-      }
+      case execute_value {
+        Break -> #(Ok(last_result), interpreter)
+        _ -> {
+          case execute_value, last_result {
+            Void, Effect(..) -> Effect(..last_result, value: None)
+            Pure(value), Effect(..) -> Effect(..last_result, value: Some(value))
+            Effect(..), Effect(..) ->
+              Effect(
+                ..execute_value,
+                side_effect: list.flatten([
+                  execute_value.side_effect,
+                  last_result.side_effect,
+                ]),
+              )
+            Effect(..), Void | Effect(..), Pure(..) -> execute_value
+            Pure(_), Pure(_) | Pure(_), Void -> execute_value
+            Void, Pure(_) | Void, Void -> last_result
 
-      execute_while(interpreter, cond, body, result)
+            _, _ -> panic as "Unreachable"
+          }
+          |> execute_while(interpreter, cond, body, _)
+        }
+      }
     }
     False -> #(Ok(last_result), interpreter)
   }
