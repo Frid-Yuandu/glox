@@ -220,7 +220,7 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
 
       use maybe_init <- with_ok(rst, parser)
 
-      use _ <- prelude.ensure_exist(
+      use _ <- ensure_exist(
         in: maybe_init,
         otherwise: Error(ParseError(ExpectRightValue, parser.line)),
         processer: parser,
@@ -288,7 +288,7 @@ fn if_stmt_inner(parser) -> #(Result(Stmt), Parser) {
   let #(then_branch_rst, parser) = statement(parser)
   use maybe_then <- with_ok(then_branch_rst, parser)
 
-  use then_branch <- prelude.ensure_exist(
+  use then_branch <- ensure_exist(
     in: maybe_then,
     otherwise: Error(ParseError(ExpectStatement, parser.line)),
     processer: parser,
@@ -402,7 +402,7 @@ fn parse_condition(parser: Parser) -> #(gleam.Result(Expr, ParseError), Parser) 
   // ensure parse Ok and condition is not none.
   let #(cond_rst, parser) = expression(parser)
   use maybe_cond <- with_ok(cond_rst, parser)
-  use cond <- prelude.ensure_exist(
+  use cond <- ensure_exist(
     in: maybe_cond,
     otherwise: Error(ParseError(ExpectExpression, parser.line)),
     processer: parser,
@@ -507,7 +507,7 @@ fn assignment(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   // Successive double equal has consumed by the previous procedure, so here
   // should be the single equal.
   use _, parser <- match(parser, token.Equal, rst)
-  use target <- prelude.ensure_exist(
+  use target <- ensure_exist(
     in: maybe_expr,
     otherwise: Error(ParseError(ExpectLeftValue, parser.line)),
     processer: parser,
@@ -515,7 +515,7 @@ fn assignment(parser: Parser) -> #(Result(Option(Expr)), Parser) {
 
   let #(value_rst, parser) = assignment(parser)
   use maybe_value <- with_ok(in: value_rst, processer: parser)
-  use value <- prelude.ensure_exist(
+  use value <- ensure_exist(
     in: maybe_value,
     otherwise: Error(ParseError(ExpectRightValue, parser.line)),
     processer: parser,
