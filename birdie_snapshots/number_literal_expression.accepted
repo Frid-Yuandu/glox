@@ -1,0 +1,8 @@
+---
+version: 1.2.3
+title: number literal expression
+---
+#(
+  Ok(Pure(Num(1.0))),
+  Environment(dict.from_list([]), None),
+)

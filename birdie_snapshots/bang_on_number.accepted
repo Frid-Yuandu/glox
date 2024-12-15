@@ -1,0 +1,8 @@
+---
+version: 1.2.3
+title: bang on number
+---
+#(
+  Ok(Pure(BoolVal(False))),
+  Environment(dict.from_list([]), None),
+)

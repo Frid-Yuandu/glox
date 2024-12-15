@@ -1,0 +1,8 @@
+---
+version: 1.2.3
+title: bang on nil
+---
+#(
+  Ok(Pure(BoolVal(True))),
+  Environment(dict.from_list([]), None),
+)

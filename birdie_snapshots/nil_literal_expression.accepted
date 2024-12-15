@@ -1,0 +1,8 @@
+---
+version: 1.2.3
+title: nil literal expression
+---
+#(
+  Ok(Pure(NilVal)),
+  Environment(dict.from_list([]), None),
+)

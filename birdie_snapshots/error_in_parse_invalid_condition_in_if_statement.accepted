@@ -4,9 +4,4 @@ title: error in parse invalid condition in if statement
 file: ./test/parser_test.gleam
 test_name: should_not_parse_if_statement_with_invalid_condition_test
 ---
-[
-  Error(ParseError(
-    UnexpectedToken(Plus),
-    1,
-  )),
-]
+[Error(ParseError(ExpectExpression, 1))]

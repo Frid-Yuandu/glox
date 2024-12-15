@@ -2,4 +2,7 @@
 version: 1.2.3
 title: non-empty gourping expression
 ---
-"Ok(None)"
+#(
+  Ok(Pure(Num(7.0))),
+  Environment(dict.from_list([]), None),
+)

@@ -1,0 +1,8 @@
+---
+version: 1.2.3
+title: number subtraction
+---
+#(
+  Ok(Pure(Num(4.0))),
+  Environment(dict.from_list([]), None),
+)

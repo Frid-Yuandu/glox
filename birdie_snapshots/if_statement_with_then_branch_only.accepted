@@ -2,4 +2,7 @@
 version: 1.2.3
 title: if statement with then branch only
 ---
-"Ok(Some(//fn() { ... }))"
+#(
+  Ok(Effect(["then"], None)),
+  Environment(dict.from_list([]), None),
+)

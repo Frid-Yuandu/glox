@@ -2,4 +2,7 @@
 version: 1.2.3
 title: if statement with expression condition
 ---
-"Ok(Some(//fn() { ... }))"
+#(
+  Ok(Effect(["condition true"], None)),
+  Environment(dict.from_list([]), None),
+)

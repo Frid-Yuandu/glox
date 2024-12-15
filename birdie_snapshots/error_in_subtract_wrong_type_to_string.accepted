@@ -2,7 +2,10 @@
 version: 1.2.3
 title: error in subtract wrong type to string
 ---
-"Error(RuntimeError(
-  Token(Minus, 1),
-  OperandMustBeNumber,
-))"
+#(
+  Error(RuntimeError(
+    Token(Minus, 1),
+    OperandMustBeNumber,
+  )),
+  Environment(dict.from_list([]), None),
+)

@@ -2,7 +2,10 @@
 version: 1.2.3
 title: error in add not number or string type
 ---
-"Error(RuntimeError(
-  Token(Plus, 1),
-  OperandMustBeNumberOrString,
-))"
+#(
+  Error(RuntimeError(
+    Token(Plus, 1),
+    OperandMustBeNumberOrString,
+  )),
+  Environment(dict.from_list([]), None),
+)

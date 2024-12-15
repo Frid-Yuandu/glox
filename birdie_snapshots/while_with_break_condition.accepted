@@ -1,0 +1,11 @@
+---
+version: 1.2.3
+title: while with break condition
+---
+#(
+  Ok(Void),
+  Environment(
+    dict.from_list([#("x", Num(3.0))]),
+    None,
+  ),
+)

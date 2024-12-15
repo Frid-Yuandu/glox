@@ -2,4 +2,13 @@
 version: 1.2.3
 title: basic while loop
 ---
-"Ok(None)"
+#(
+  Ok(Effect(
+    ["0.0", "1.0", "2.0"],
+    Some(Num(3.0)),
+  )),
+  Environment(
+    dict.from_list([#("i", Num(3.0))]),
+    None,
+  ),
+)

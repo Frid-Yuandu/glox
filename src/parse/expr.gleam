@@ -20,4 +20,5 @@ pub type Expr {
   Binary(left: Expr, op: Token, right: Expr)
   Grouping(expr: Option(Expr))
   Variable(name: Token)
+  Call(callee: Expr, paren: Token, arguments: List(Expr))
 }

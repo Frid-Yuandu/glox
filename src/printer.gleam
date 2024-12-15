@@ -39,6 +39,7 @@ pub fn inspect_ast(expr: expr.Expr) -> String {
       <> token.to_lexeme(name.type_)
       <> inspect_ast(e)
       <> ")"
+    expr.Call(_, _, _) -> todo
   }
 }
 

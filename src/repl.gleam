@@ -15,6 +15,7 @@ import parse/expr.{type Expr}
 import parse/stmt.{type Stmt}
 import printer
 
+import leviathan.{type State}
 import stdin
 
 pub type REPL(a) {
@@ -26,6 +27,9 @@ pub type InputState(a) {
   Invalid
   Incomplete
 }
+
+type InterpreterState(a, b) =
+  State(Interpreter(a), b)
 
 pub fn start() {
   let init_repl = REPL(pending: [], lines: 1, interpreter: interpreter.new())
@@ -55,7 +59,7 @@ fn loop(repl: REPL(a), line: String) -> REPL(a) {
   let #(stmt_rst, expr_rst) = try_parse_stmt_and_expr(repl.pending)
 
   let new_repl = case validate(stmt_rst), validate(expr_rst) {
-    Valid(Some(stmt)), _ -> interpret_stmt(stmt, with: repl)
+    Valid(Some(stmt)), _ -> execute_stmt(stmt, with: repl)
     _, Valid(Some(expr)) -> evaluate_expr(expr, with: repl)
     Valid(None), _ | _, Valid(None) -> repl
     Incomplete, _ | _, Incomplete -> repl
@@ -86,7 +90,7 @@ fn validate(parse_result: Result(a, ParseError)) -> InputState(a) {
   }
 }
 
-fn interpret_stmt(stmt: Stmt, with repl: REPL(a)) -> REPL(a) {
+fn execute_stmt(stmt: Stmt, with repl: REPL(a)) -> REPL(a) {
   let #(itpr_rest, interpreter) = interpreter.execute(repl.interpreter, [stmt])
   case itpr_rest {
     Error(err) -> printer.print_runtime_error(err)
