@@ -40,7 +40,9 @@
 ////    comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 ////    term -> factor ( ( "+" | "-" ) factor )* ;
 ////    factor -> unary ( ( "/" | "*" ) unary)* ;
-////    unary -> ( "!" | "-" ) unary | literal;
+////    unary -> ( "!" | "-" ) unary | call ;
+////    call -> primary ( "(" arguments? ")" )* ;
+////    arguments -> expression ( "," expression )* ;
 ////    literal -> "true" | "false" | "nil"
 ////             | NUMBER | STRING | "(" expression ")" | IDENTIFIER ;
 ////
@@ -84,11 +86,11 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 
 import parse/error.{
-  type LexicalError, type ParseError, BreakNotInLoop, ExpectExpression,
-  ExpectLeftParentheses, ExpectLeftValue, ExpectRightParentheses,
-  ExpectRightValue, ExpectSemicolon, ExpectStatement, ExpectVariableName,
-  ExtraneousParentheses, InvalidAssignmentTarget, LexError, LexicalError,
-  ParseError,
+  type LexicalError, type ParseError, BreakNotInLoop, ExpectCallable,
+  ExpectComma, ExpectExpression, ExpectLeftParentheses, ExpectLeftValue,
+  ExpectRightParentheses, ExpectRightValue, ExpectSemicolon, ExpectStatement,
+  ExpectVariableName, ExtraneousParentheses, InvalidAssignmentTarget, LexError,
+  LexicalError, ParseError, TooManyArguments,
 }
 import parse/expr.{
   type Expr, Assign, Binary, Boolean, Grouping, LogicAnd, LogicOr, NegativeBool,
@@ -100,7 +102,7 @@ import parse/stmt.{
   While,
 }
 import parse/token.{type Token, type TokenType, Token}
-import prelude.{ensure_exist, with_ok}
+import prelude.{ensure_exist, loop, with_ok}
 
 pub type Parser {
   Parser(
@@ -116,6 +118,12 @@ pub type Parser {
 // the result of a parsing stage may also Expr and Stmt
 pub type Result(t) =
   gleam.Result(t, ParseError)
+
+type ExprPair =
+  #(Result(Option(Expr)), Parser)
+
+type StmtPair =
+  #(Result(Option(Stmt)), Parser)
 
 pub fn new(tokens: Iterator(LexResult)) -> Parser {
   Parser(
@@ -183,7 +191,7 @@ fn to_iter(parser: Parser) -> Iterator(Result(Option(Stmt))) {
 }
 
 // Parsing enterpoint
-pub fn declaration(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+pub fn declaration(parser: Parser) -> StmtPair {
   let #(rst, parser) = case parser.tok0 {
     Some(Token(token.Var, _)) -> var_declaration(parser)
     _ -> statement(parser)
@@ -194,7 +202,7 @@ pub fn declaration(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   }
 }
 
-fn var_declaration(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+fn var_declaration(parser: Parser) -> StmtPair {
   let #(rst, parser) = var_declaration_inner(parser)
   case rst {
     Ok(s) -> #(Ok(Some(s)), parser)
@@ -246,7 +254,7 @@ fn var_declaration_inner(parser: Parser) -> #(Result(Stmt), Parser) {
   }
 }
 
-fn statement(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+fn statement(parser: Parser) -> StmtPair {
   case parser.tok0 {
     Some(Token(token.If, _)) -> if_stmt(advance(parser))
     Some(Token(token.For, _)) -> parser |> advance |> begin_loop |> for_stmt
@@ -258,7 +266,7 @@ fn statement(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   }
 }
 
-fn break_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+fn break_stmt(parser: Parser) -> StmtPair {
   case parser.tok0, parser.loop_depth {
     Some(Token(token.Semicolon, _)), n if n > 0 -> #(
       Ok(Some(Break)),
@@ -274,7 +282,7 @@ fn break_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
 
 /// if_stmt eagerly looks for the "else"" token, thus the else branch will be
 /// bound to the nearest if statement.
-fn if_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+fn if_stmt(parser: Parser) -> StmtPair {
   let #(rst, parser) = if_stmt_inner(parser)
   use rst <- with_ok(in: rst, processer: parser)
 
@@ -307,7 +315,7 @@ fn if_stmt_inner(parser) -> #(Result(Stmt), Parser) {
   }
 }
 
-fn for_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+fn for_stmt(parser: Parser) -> StmtPair {
   let #(rst, parser) = {
     use _, parser <- match(
       parser:,
@@ -368,7 +376,7 @@ fn for_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   #(rst, end_loop(parser))
 }
 
-fn while_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+fn while_stmt(parser: Parser) -> StmtPair {
   let #(rst, parser) = {
     use condition, parser <- ensure_condition_valid(parser)
 
@@ -417,7 +425,7 @@ fn parse_condition(parser: Parser) -> #(gleam.Result(Expr, ParseError), Parser) 
   #(Ok(cond), parser)
 }
 
-fn block(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+fn block(parser: Parser) -> StmtPair {
   let #(rst, parser) = block_inner(parser, [])
   use statements <- with_ok(rst, parser)
 
@@ -442,7 +450,7 @@ fn block_inner(
   }
 }
 
-fn print_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+fn print_stmt(parser: Parser) -> StmtPair {
   let #(rst, parser) = print_stmt_inner(parser)
   case rst {
     Ok(s) -> #(Ok(Some(s)), parser)
@@ -468,7 +476,7 @@ fn print_stmt_inner(parser: Parser) -> #(Result(Stmt), Parser) {
   }
 }
 
-pub fn expression(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+pub fn expression(parser: Parser) -> ExprPair {
   let #(rst, parser) = assignment(parser)
   let rst = case parser.lex_errors {
     [] -> rst
@@ -478,7 +486,7 @@ pub fn expression(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   #(rst, parser)
 }
 
-fn expr_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
+fn expr_stmt(parser: Parser) -> StmtPair {
   let #(expr_rst, parser) = expression(parser)
 
   use maybe_exp <- with_ok(expr_rst, parser)
@@ -500,7 +508,7 @@ fn expr_stmt(parser: Parser) -> #(Result(Option(Stmt)), Parser) {
   }
 }
 
-fn assignment(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+fn assignment(parser: Parser) -> ExprPair {
   let #(rst, parser) = logic_or(parser)
   use maybe_expr <- with_ok(in: rst, processer: parser)
 
@@ -528,7 +536,7 @@ fn assignment(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   #(rst, parser)
 }
 
-fn logic_or(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+fn logic_or(parser: Parser) -> ExprPair {
   logic_and(parser)
   |> parse_successive_binary(
     match: [token.Or],
@@ -537,7 +545,7 @@ fn logic_or(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   )
 }
 
-fn logic_and(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+fn logic_and(parser: Parser) -> ExprPair {
   equality(parser)
   |> parse_successive_binary(
     match: [token.And],
@@ -546,7 +554,7 @@ fn logic_and(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   )
 }
 
-fn equality(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+fn equality(parser: Parser) -> ExprPair {
   comparison(parser)
   |> parse_successive_binary(
     match: [token.NotEqual, token.EqualEqual],
@@ -555,7 +563,7 @@ fn equality(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   )
 }
 
-fn comparison(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+fn comparison(parser: Parser) -> ExprPair {
   term(parser)
   |> parse_successive_binary(
     match: [token.Greater, token.GreaterEqual, token.Less, token.LessEqual],
@@ -564,7 +572,7 @@ fn comparison(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   )
 }
 
-fn term(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+fn term(parser: Parser) -> ExprPair {
   factor(parser)
   |> parse_successive_binary(
     match: [token.Minus, token.Plus],
@@ -573,7 +581,7 @@ fn term(parser: Parser) -> #(Result(Option(Expr)), Parser) {
   )
 }
 
-fn factor(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+fn factor(parser: Parser) -> ExprPair {
   unary(parser)
   |> parse_successive_binary(
     match: [token.Slash, token.Star],
@@ -583,11 +591,11 @@ fn factor(parser: Parser) -> #(Result(Option(Expr)), Parser) {
 }
 
 fn parse_successive_binary(
-  pair: #(Result(Option(Expr)), Parser),
+  pair: ExprPair,
   match operators: List(TokenType),
   constructor constructor: fn(Expr, Token, Expr) -> Expr,
-  with parse_func: fn(Parser) -> #(Result(Option(Expr)), Parser),
-) -> #(Result(Option(Expr)), Parser) {
+  with parse_func: fn(Parser) -> ExprPair,
+) -> ExprPair {
   let #(rst, parser) = pair
   use left, op <- unless_is_successive_bianry(parser, rst, operators, pair)
 
@@ -640,7 +648,7 @@ fn is_successive(
   valid_left_operand && match_operator
 }
 
-fn unary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+fn unary(parser: Parser) -> ExprPair {
   case parser.tok0 {
     Some(Token(token.Bang, _) as op) -> {
       let #(rst, right_parser) as pair = unary(advance(parser))
@@ -671,11 +679,81 @@ fn unary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
       }
     }
 
-    _ -> primary(parser)
+    _ -> call(parser)
   }
 }
 
-fn primary(parser: Parser) -> #(Result(Option(Expr)), Parser) {
+fn call(parser: Parser) -> ExprPair {
+  let init = primary(parser)
+
+  loop(
+    when: fn(init: ExprPair) {
+      let #(_, current_parser) = init
+      is_token_type(current_parser.tok0, of: token.LeftParen)
+    },
+    init:,
+    do: fn(init: ExprPair) {
+      // In the body, expression must be callee rather than plain object.
+      let #(callee_or_primary_rst, parser) = init
+      use _, parser <- match(
+        parser:,
+        type_of: token.LeftParen,
+        otherwise: Error(ParseError(ExpectLeftParentheses, parser.line)),
+      )
+      use maybe_callee <- with_ok(in: callee_or_primary_rst, processer: parser)
+      use callee <- ensure_exist(
+        in: maybe_callee,
+        otherwise: Error(ParseError(ExpectCallable, parser.line)),
+        processer: parser,
+      )
+      finish_call(parser, callee)
+    },
+  )
+}
+
+fn finish_call(parser: Parser, callee: Expr) -> ExprPair {
+  let #(args_rst, parser) = consume_arguments(parser, [])
+  use arguments <- with_ok(in: args_rst, processer: parser)
+  use paren, parser <- match(
+    parser:,
+    type_of: token.RightParen,
+    otherwise: Error(ParseError(ExpectRightParentheses, parser.line)),
+  )
+  let call = expr.Call(callee:, paren:, arguments:)
+  #(Ok(Some(call)), parser)
+}
+
+fn consume_arguments(
+  parser: Parser,
+  arguments: List(Expr),
+) -> #(Result(List(Expr)), Parser) {
+  case is_token_type(parser.tok0, token.RightParen) {
+    True -> #(Ok(arguments), parser)
+    False ->
+      case list.length(arguments) {
+        n if n >= 255 -> #(
+          Error(ParseError(TooManyArguments, parser.line)),
+          parser,
+        )
+        _ -> {
+          let #(rst, parser) = expression(parser)
+          use maybe_expr <- with_ok(in: rst, processer: parser)
+          use _, parser <- match(
+            parser:,
+            type_of: token.Comma,
+            otherwise: Error(ParseError(ExpectComma, parser.line)),
+          )
+
+          maybe_expr
+          |> option.map(fn(e) { list.append(arguments, [e]) })
+          |> option.unwrap(arguments)
+          |> consume_arguments(parser, _)
+        }
+      }
+  }
+}
+
+fn primary(parser: Parser) -> ExprPair {
   case parser.tok0 {
     // end parsing if encounter semicolon, don't consume semicolon here, it should
     // be consumed at statement level.

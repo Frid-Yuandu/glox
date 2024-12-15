@@ -323,6 +323,8 @@ pub fn evaluate(
         Error(err) -> #(Error(err), interpreter)
       }
     }
+
+    expr.Call(_, _, _) -> todo
   }
 }
 

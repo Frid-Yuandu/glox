@@ -45,13 +45,13 @@ pub type ParseErrorType {
   ExpectRightParentheses
   ExpectRightBrace
   ExpectVariableName
+  ExpectCallable
+  ExpectComma
 
+  TooManyArguments
   ExtraneousParentheses
-
   InvalidAssignmentTarget
-
   BreakNotInLoop
-
   UnexpectedToken(TokenType)
 }
 
@@ -81,6 +81,9 @@ pub fn inspect_parse_error(err: ParseError) -> String {
       <> int.to_string(err.line)
     ExpectVariableName ->
       "Expect variable name on line " <> int.to_string(err.line)
+    ExpectCallable ->
+      "Expect callable object on line " <> int.to_string(err.line)
+    ExpectComma -> "Expect comma on line " <> int.to_string(err.line)
 
     ExtraneousParentheses ->
       "Extraneous closing parenthesis \")\": " <> int.to_string(err.line)
@@ -96,5 +99,6 @@ pub fn inspect_parse_error(err: ParseError) -> String {
 
     BreakNotInLoop ->
       "Break is outside of loop on line " <> int.to_string(err.line)
+    TooManyArguments -> "Can't have more than 255 arguments."
   }
 }
